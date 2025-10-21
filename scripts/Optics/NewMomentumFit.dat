@@ -1,0 +1,31 @@
+bb.preconflag = 1
+# NOTE on new momentum reconstruction formalism: 1st-order momentum is calculated from
+#   p*thetabend = A_pth1*(1.0 + (B_pth1+C_pth1*bb.magdist)*thtgt)
+# and momentum expansion coefficients are for delta = p(first order) * (1+delta)
+# In most of the acceptance we don't need any corrections beyond the first-order model
+
+bb.A_pth1 =     0.287186374
+bb.B_pth1 =     0.798543608
+bb.C_pth1 = 0.0
+
+bb.A_pvy =   -0.0108430846
+bb.B_pvy =     -11.2495606
+#NOTE: angle and vertex reconstruction coefficients are from newcoeffs.dat
+
+bb.optics_parameters = 
+    -0.019351831  -0.00031297025   0.00040763341               0    0 0 0 0 0 
+      0.49397238    0.0011423509    0.0019053357               0    1 0 0 0 0 
+    -0.032466462    -0.007266414     0.076044974               0    2 0 0 0 0 
+   -0.0070493874    -0.053050936       1.1117798               0    0 1 0 0 0 
+      0.25918871     0.010912625     0.042627584               0    1 1 0 0 0 
+    -0.019163117    -0.066395904     0.058673016               0    0 2 0 0 0 
+     -0.37747196   -0.0052710528    0.0023317815               0    0 0 1 0 0 
+   -0.0095511471     0.023532024     -0.41875591               0    1 0 1 0 0 
+     -0.19301092      0.13997979     -0.43174658               0    0 1 1 0 0 
+     0.079592758     0.016835765      0.55262133               0    0 0 2 0 0 
+     0.010237197       1.0534249      -2.8071592               0    0 0 0 1 0 
+     -0.69090606    -0.029645229     -0.14791226               0    1 0 0 1 0 
+      0.18214597      0.22676064    -0.030199681               0    0 1 0 1 0 
+      0.59630412     -0.12967203      0.59818703               0    0 0 1 1 0 
+     -0.29081068     -0.12795084     -0.30604375               0    0 0 0 2 0 
+     -0.84988972               0               0               0    0 0 0 0 1 
