@@ -2,8 +2,7 @@
 //////////////////////////////////////////////////////////
 //   Created by Provakar Datta
 //   Modified by Sean Jeffas, sj9ry@virginia.edu
-//   Modified by Vimukthi Haththotuwa Gamage, vph7xu@virginia.edu
-//   Last Modified Jan 4, 2026
+//   Last Modified July 7, 2023
 //
 //
 //   The purpose of this script is to take a configuraiton
@@ -14,6 +13,10 @@
 //////////////////////////////////////////////////////////
 #include <vector>
 #include <iostream>
+#include <algorithm>
+#include <regex>
+#include <utility>
+#include <limits>
 
 #include "TCut.h"
 #include "TH1F.h"
@@ -26,6 +29,37 @@
 
 #include "../../include/gen-ana.h"
 
+
+
+// -------------------- helpers to avoid silent event loss --------------------
+static int ExtractRunNumberSafe(const std::string& fname){
+  std::smatch m;
+  std::regex r1(R"((\d{4,6})(?=_stream))");
+  if(std::regex_search(fname, m, r1)){
+    try { return std::stoi(m[1].str()); } catch(...) {}
+  }
+  // Fallback: last 4-6 digit group in the string
+  std::regex r2(R"((\d{4,6}))");
+  int run = -1;
+  for(auto it = std::sregex_iterator(fname.begin(), fname.end(), r2);
+      it != std::sregex_iterator(); ++it){
+    try { run = std::stoi((*it)[1].str()); } catch(...) {}
+  }
+  return run;
+}
+
+static void EnableBranchesForFormula(TTreeFormula* f){
+  if(!f) return;
+  // If you used SetBranchStatus("*",0), any leaf used in the formula must be re-enabled
+  int nc = f->GetNcodes();
+  for(int i=0;i<nc;i++){
+    TLeaf* leaf = f->GetLeaf(i);
+    if(!leaf) continue;
+    TBranch* br = leaf->GetBranch();
+    if(!br) continue;
+    br->SetStatus(1);
+  }
+}
 
 DBparse::DBInfo DBInfo;
 
@@ -53,7 +87,7 @@ void getDB(TString cfg){
 }
 
 
-int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3/QE_data")
+int QuasiElastic_ana_withsbsgems_2026(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3/QE_data")
 {
 
   string configdir = "../../config/";
@@ -101,9 +135,9 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
 
   // setting up ROOT tree branch addresses ---------------------------------------
 
-  // setting up global cuts
+  // setting up global cuts (create formula AFTER branch-status setup)
   TCut globalcut = kin_info.globalcut;
-  TTreeFormula *GlobalCut = new TTreeFormula("GlobalCut", globalcut, C);
+  TTreeFormula *GlobalCut = nullptr;
 
   int maxNtr=1000;
   C->SetBranchStatus("*",0);
@@ -130,6 +164,19 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     epics_HALLA_p.push_back(HALLA_p);
   }
 
+
+  // Ensure EPICS vectors are sorted by event number for upper_bound lookup
+  {
+    std::vector<std::pair<double,double>> ep;
+    ep.reserve(epics_evnum.size());
+    for(size_t i=0;i<epics_evnum.size();++i) ep.emplace_back(epics_evnum[i], epics_HALLA_p[i]);
+    std::sort(ep.begin(), ep.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+    for(size_t i=0;i<ep.size();++i){
+      epics_evnum[i] = ep[i].first;
+      epics_HALLA_p[i] = ep[i].second;
+    }
+  }
+
   // Some CODA event information
   double evtime;   setrootvar::setbranch(C,"g","evtime",&evtime);
   double evnum_T;   setrootvar::setbranch(C,"g","evnum",&evnum_T);
@@ -146,7 +193,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   std::vector<void*> bbcalpsclvar_mem = {&ePS,&xPS}; 
   setrootvar::setbranch(C,"bb.ps",bbcalpsclvar,bbcalpsclvar_mem);
   
-  int maxhcal = 1000;
+  const int maxhcal = 1000;
 
   // hcal clus var
   int Ndata_clus_id;
@@ -159,7 +206,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   //hcal all clus var
   double clusEHCAL[maxhcal], clusxHCAL[maxhcal], clusyHCAL[maxhcal], clusatimeHCAL[maxhcal], clustdctimeHCAL[maxhcal], blkid[maxhcal], nblk[maxhcal];
   std::vector<std::string> hcalclmemvar = {"e","x","y","atimeblk","tdctime","id","nblk"};
-  std::vector<void*> hcalclmemvar_mem = {&clusEHCAL,&clusxHCAL,&clusyHCAL,clusatimeHCAL,&clustdctimeHCAL,&blkid,&nblk};
+  std::vector<void*> hcalclmemvar_mem = {&clusEHCAL,&clusxHCAL,&clusyHCAL,&clusatimeHCAL,&clustdctimeHCAL,&blkid,&nblk};
   setrootvar::setbranch(C, "sbs.hcal.clus", hcalclmemvar, hcalclmemvar_mem);
 
   //hcal primary clus var
@@ -269,6 +316,13 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   C->SetBranchStatus("bb.etot_over_p", 1);
   C->SetBranchStatus("sbs.hcal.nclus", 1);
   
+
+  // Build the cut formula now that branches are configured/enabled
+  GlobalCut = new TTreeFormula("GlobalCut", globalcut, C);
+  GlobalCut->SetQuickLoad(kTRUE);
+  EnableBranchesForFormula(GlobalCut);
+  GlobalCut->UpdateFormulaLeaves();
+
   // defining the outputfile
   TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_sbstrackingon.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
@@ -497,17 +551,17 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     if (nevent == 1 || currenttreenum != treenum) {
       treenum = currenttreenum;
       GlobalCut->UpdateFormulaLeaves();
+      EnableBranchesForFormula(GlobalCut);
 
       //Get the run number
       string s = C->GetFile()->GetName();
-      int start = s.find("_stream0");
-      start -= 4;
-      int end = start + 4;
-      T_runnum = stoi(s.substr(start,end - start));
+      T_runnum = ExtractRunNumberSafe(s);
 
       //Get the time this run started
       auto* Run_Data = C->GetFile()->Get<THaRunBase>("Run_Data");
-      TDatime run_time = Run_Data->GetDate();
+      TDatime run_time;
+      if(Run_Data) run_time = Run_Data->GetDate();
+      else run_time.Set();
       run_time.Set(run_time.GetYear(),run_time.GetMonth(),run_time.GetDay(),run_time.GetHour(),run_time.GetMinute(),0);
       run_time_unix = run_time.Convert();
 
@@ -515,7 +569,8 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
       //First we do some stuff to max sure we dont reach the file limit
       int file_nevents = C->GetTree()->GetEntries();
       int max_events = 8000;
-      if(file_nevents < max_events) max_events = file_nevents - 100;
+      if(file_nevents <= 0) max_events = 0;
+      else max_events = std::min(max_events, std::max(0, file_nevents - 100));
       
       int start_event = nevent;
       while (C->GetEntry(start_event++) && start_event < nevent + max_events){
@@ -528,6 +583,26 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     bool passedgCut = GlobalCut->EvalInstance(0) != 0;  
     
     if (!passedgCut) continue;
+
+    // ---- guards to prevent undefined values / out-of-bounds from biasing selection ----
+    const int ntr = static_cast<int>(ntrack);
+    if(ntr < 1) continue;
+
+    const int ntr_sbs = static_cast<int>(ntrack_sbs);
+    if(ntr_sbs < 1) continue;
+
+    int Nclus_raw = static_cast<int>(nclusHCAL);
+    if(Nclus_raw < 1) continue;
+
+    // Clamp variable-length arrays before copying to output buffers
+    int Ndata_clus_id_safe = Ndata_clus_id;
+    if(Ndata_clus_id_safe < 0) Ndata_clus_id_safe = 0;
+    if(Ndata_clus_id_safe > maxhcal) Ndata_clus_id_safe = maxhcal;
+
+    int nhodo_safe = nhodo_clus;
+    if(nhodo_safe < 0) nhodo_safe = 0;
+    if(nhodo_safe > maxClus) nhodo_safe = maxClus;
+
    
     //cout<<"global passed "<<endl;
     
@@ -558,8 +633,8 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     T_hcal_time = atimeHCAL[0];
     T_bbcal_time = atimeSH;
       
-    T_nhodo_clus = nhodo_clus;
-    for(int iclus = 0; iclus < nhodo_clus; iclus++)
+    T_nhodo_clus = nhodo_safe;
+    for(int iclus = 0; iclus < nhodo_safe; iclus++)
       T_hodo_time[iclus] = hodo_time[iclus];
       
     double coin_time = atimeHCAL[0] - atimeSH;  
@@ -590,17 +665,15 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     // kinematic parameters
     //double ebeam = sbsconf.GetEbeam();       // Expected beam energy (GeV) [Get it from EPICS, eventually]
     
-    size_t j   = up(evnum_T);        // first EPICS evnum > current event
-    size_t idx = (j==0) ? 0 : j-1;    // take the latest EPICS sample <= event evnum
-    if(idx >= epics_HALLA_p.size()) idx = epics_HALLA_p.size()-1;
+    double ebeam = sbsconf.GetEbeam(); // fallback if EPICS is missing/empty
+    if(!epics_evnum.empty() && !epics_HALLA_p.empty()){
+      size_t j   = up(evnum_T);            // first EPICS evnum > current event
+      size_t idx = (j==0) ? 0 : j-1;       // latest EPICS sample <= event evnum
+      if(idx >= epics_HALLA_p.size()) idx = epics_HALLA_p.size()-1;
+      double pMeV = epics_HALLA_p[idx];
+      ebeam = pMeV/1000.0;
+    }
 
-    double pMeV = epics_HALLA_p[idx];
-    //double EMeV = std::sqrt(pMeV*pMeV + me*me);  // exact; for GeV electrons E≈p
-
-    //ebeam_MeV = (float)EMeV;
-    //ebeam_GeV = (float)(EMeV/1000.0);
-    
-    double ebeam = pMeV/1000.0;
 
     double ebeam_corr = ebeam; //- MeanEloss;
     double precon = p[0]; //+ MeanEloss_outgoing
@@ -756,7 +829,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     T_xHCAL = xHCAL[0];
     T_yHCAL = yHCAL[0];
 
-    T_Ndata_clus_id = Ndata_clus_id;
+    T_Ndata_clus_id = Ndata_clus_id_safe;
 
     T_nclus_HCAL = nclusHCAL;
     T_nblk_HCAL = nblkHCAL;

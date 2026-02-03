@@ -1,0 +1,139 @@
+git repository info
+-------------------------------------------------
+7aa660d5c75c0170ecd75648fcc05652cf5ddef1 Merge pull request #53 from ajpuckett/master
+## master...origin/master
+
+Geant4 version 11.2.1
+  ROOT version 6.30.04
+ cmake version 3.26.5
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+Generated at Fri Oct 24 10:44:46 AM EDT 2025
+Source dir /w/halla-scshelf2102/sbs/vimukthi/g4sbs/g4sbs
+Build  dir /w/halla-scshelf2102/sbs/vimukthi/g4sbs/build
+-------------------------------------------------
+
+Run at 2025-10-28 18:10:30 on ifarm2402.jlab.org
+Run Path /w/halla-scshelf2102/sbs/vimukthi/jlab-HPC-updated/jlab-HPC
+N generated = 10000
+N tries     = 10000
+Beam Energy = 4.291000 GeV
+Beam Current = 60.000000 muA
+Experiment  = gen
+Generator   = elastic
+Normalization = 3.1305e+32
+Rejection sampling OFF: rate = dsigma * Normalization = dsigma x (phsp. vol) x luminosity/Ntries
+Rejection sampling ON: rate = (max xsec * Normalization) = maxweightx(phsp.vol)xluminosity/Ntries
+Generation Volume =  0.17632
+Luminosity = 1.7754e+37 Hz/cm^2
+BigBite central angle =     29.5 degrees
+BigBite magnet distance =     1.63 meters
+SBS central angle =     34.7 degrees
+SBS magnet distance =      2.8 meters
+HCAL distance =       17 meters
+HCAL vertical offset =       75 cm
+RICH distance =      5.5 meters
+SBS tracker distance =      5.1 meters
+SBS tracker pitch angle =        0 degrees
+Max weight for rejection sampling =        1 (diff. xsec units) 
+Field maps:
+	/work/halla/sbs/vimukthi/g4sbs/install/share/fieldmaps/SBSPortableFieldMap_FrontClampOnly_NoPoleShims.table
+	d171d4d8b4119bd4a141a33a62f60cb4
+	2024-02-20 21:00:33
+
+Pre-Init Macro run:
+---------------------------------------
+Stored file /work/halla/sbs/vimukthi/g4sbs/install/scripts/GEN2_He3_elastic.mac (2 kB)
+/g4sbs/usescint 0
+/g4sbs/useckov 1
+
+/g4sbs/DisableOpticalPhotonByMaterial BBHodo_Scinti
+/g4sbs/DisableOpticalPhotonByMaterial Special_Air
+/g4sbs/DisableOpticalPhotonByMaterial Mylar
+/g4sbs/DisableOpticalPhotonByMaterial TF1
+/g4sbs/DisableOpticalPhotonByMaterial F101
+/g4sbs/DisableOpticalPhotonByMaterial TF5
+/g4sbs/DisableOpticalPhotonByMaterial QuartzWindow_ECal
+/g4sbs/DisableOpticalPhotonByMaterial Photocathode_BB
+/g4sbs/DisableOpticalPhotonByMaterial Photocathode_material_ecal
+/g4sbs/DisableOpticalPhotonByMaterial Pyrex_Glass
+/g4sbs/DisableOpticalPhotonByMaterial CDET_BC408
+/g4sbs/DisableOpticalPhotonByMaterial BCF_92
+/g4sbs/DisableOpticalPhotonByMaterial CDET_Acrylic
+/g4sbs/DisableOpticalPhotonByMaterial Photocathode_CDet
+/g4sbs/DisableOpticalPhotonByMaterial EJ232
+/g4sbs/DisableOpticalPhotonByMaterial BC484
+/g4sbs/DisableOpticalPhotonByMaterial Glass_HC
+/g4sbs/DisableOpticalPhotonByMaterial Paper
+#/g4sbs/DisableOpticalPhotonByMaterial Air
+#/g4sbs/DisableOpticalPhotonByMaterial RICH_air
+
+## Configure G4SBS for gen (Q^2 = 3.0 GeV^2)
+
+## Configure Experiment
+/g4sbs/exp             gen
+
+## Configure the target
+/g4sbs/target          3He
+/g4sbs/targpres        10 atmosphere     ## Target pressure
+/g4sbs/targlen         60.0 cm           ## Target Length
+/g4sbs/targgenhhconfig 300               ## HH coil position
+/g4sbs/targgenDRX      0 deg             ## target angular misalignment about x axis  
+/g4sbs/targgenDRY      0 deg             ## target angular misalignment about y axis
+/g4sbs/targgenDRZ      0 deg             ## target angular misalignment about z axis
+/g4sbs/targgenColEnable true
+/g4sbs/usehadronfilter true
+
+## Configure generator settings
+/g4sbs/kine            elastic           ## Generator
+/g4sbs/runtime         0.1 s
+/g4sbs/beamcur         60.0 muA
+/g4sbs/rasterR         2.5 mm
+/g4sbs/beamspotsize    0.5 mm
+/g4sbs/beamoffsetx     0.0 mm
+/g4sbs/beamoffsety     0.0 mm
+/g4sbs/beamE           4.291 GeV
+/g4sbs/thmin           19.0 deg
+/g4sbs/thmax           39.0 deg
+/g4sbs/phmin          -30.0 deg
+/g4sbs/phmax           30.0 deg
+
+## Configure standard detector settings
+/g4sbs/hcaldist        17.0 m
+/g4sbs/hcalvoffset     0.75 m
+
+## Configure the magnets
+/g4sbs/bbfield         1
+/g4sbs/scalebbfield    0.905
+#/g4sbs/48d48field      1
+#/g4sbs/sbsmagfield     0.82 T
+/g4sbs/tosfield        SBSPortableFieldMap_FrontClampOnly_NoPoleShims.table 2
+/g4sbs/scalesbsfield   0.98
+/g4sbs/bbang           29.5 deg
+/g4sbs/bbdist          1.63 m
+/g4sbs/sbsang          34.7 deg
+/g4sbs/48D48dist       2.8 m
+
+## Optional detectors 
+/g4sbs/beamDumpEnable true
+/g4sbs/beamDiffuserEnable false
+/g4sbs/uselead 0
+
+/g4sbs/keepsdtrackinfo all true
+/g4sbs/totalabs false
+
+/g4sbs/eventstatusevery 100
+#/g4sbs/buildBBsieve 1
+
+
+Macro run:
+-------------------------------------------------
+Stored file GEN2_He3_elastic_job_0.mac (122 bytes)
+/g4sbs/filename GEN2_He3_elastic_job_0.root
+/g4sbs/run 10000
+/g4sbs/filename GEN2_He3_elastic_job_0.root
+/g4sbs/run 10000
+
+External macros called (  0 total):
+------------------------

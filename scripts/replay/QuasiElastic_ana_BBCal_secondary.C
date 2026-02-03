@@ -2,8 +2,7 @@
 //////////////////////////////////////////////////////////
 //   Created by Provakar Datta
 //   Modified by Sean Jeffas, sj9ry@virginia.edu
-//   Modified by Vimukthi Haththotuwa Gamage, vph7xu@virginia.edu
-//   Last Modified Jan 4, 2026
+//   Last Modified July 7, 2023
 //
 //
 //   The purpose of this script is to take a configuraiton
@@ -53,7 +52,7 @@ void getDB(TString cfg){
 }
 
 
-int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3/QE_data")
+int QuasiElastic_ana_BBCal_secondary(const std::string configfilename, std::string filebase="../outfiles/H2/QE_data")
 {
 
   string configdir = "../../config/";
@@ -135,18 +134,35 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   double evnum_T;   setrootvar::setbranch(C,"g","evnum",&evnum_T);
   
   // bbcal sh clus var
-  double eSH,xSH,ySH,atimeSH;
-  std::vector<std::string> bbcalclvar = {"e","x","y","atimeblk"}; 
-  std::vector<void*> bbcalclvar_mem = {&eSH,&xSH,&ySH,&atimeSH}; 
+  double eSH,xSH,ySH,atimeSH,nclusSH;
+  std::vector<std::string> bbcalclvar = {"e","x","y","atimeblk","nclus"}; 
+  std::vector<void*> bbcalclvar_mem = {&eSH,&xSH,&ySH,&atimeSH,&nclusSH}; 
   setrootvar::setbranch(C,"bb.sh",bbcalclvar,bbcalclvar_mem);
   
   // bbcal ps clus var
-  double ePS, xPS;
-  std::vector<std::string> bbcalpsclvar = {"e","x"}; 
-  std::vector<void*> bbcalpsclvar_mem = {&ePS,&xPS}; 
+  double ePS,xPS,nclusPS;
+  std::vector<std::string> bbcalpsclvar = {"e","x","nclus"}; 
+  std::vector<void*> bbcalpsclvar_mem = {&ePS,&xPS,&nclusPS}; 
   setrootvar::setbranch(C,"bb.ps",bbcalpsclvar,bbcalpsclvar_mem);
-  
-  int maxhcal = 1000;
+ 
+  //bbsh all clus var
+  int maxbbcal = 10;
+  int Ndata_clus_id_sh;
+  double clusESH[maxbbcal], clusatimeSH[maxbbcal], blkidSH[maxbbcal], nblkSH[maxbbcal], clusxSH[maxbbcal], clusySH[maxbbcal];
+  std::vector<std::string> shclmemvar = {"e","atimeblk","id","nblk","x","y"};
+  std::vector<void*> shclmemvar_mem = {&clusESH,&clusatimeSH,&blkidSH,&nblkSH,&clusxSH,&clusySH};
+  setrootvar::setbranch(C, "bb.sh.clus", shclmemvar, shclmemvar_mem);
+  setrootvar::setbranch(C,"Ndata.bb.sh.clus","id",&Ndata_clus_id_sh);
+
+  //bbps all clus var
+  int Ndata_clus_id_ps;
+  double clusEPS[maxbbcal], clusatimePS[maxbbcal], blkidPS[maxbbcal], nblkPS[maxbbcal], clusxPS[maxbbcal], clusyPS[maxbbcal];
+  std::vector<std::string> psclmemvar = {"e","atimeblk","id","nblk","x","y"};
+  std::vector<void*> psclmemvar_mem = {&clusEPS,&clusatimePS,&blkidPS,&nblkPS,&clusxPS,&clusyPS};
+  setrootvar::setbranch(C, "bb.ps.clus", shclmemvar, shclmemvar_mem);
+  setrootvar::setbranch(C,"Ndata.bb.ps.clus","id",&Ndata_clus_id_ps);
+
+  int maxhcal = 100;
 
   // hcal clus var
   int Ndata_clus_id;
@@ -377,10 +393,30 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
 
   //BBCAL
   double T_ePS;         Tout->Branch("ePS", &T_ePS, "ePS/D"); 
-  double T_xPS;         Tout->Branch("xPS", &T_xPS, "xPS/D"); 
+  double T_xPS;         Tout->Branch("xPS", &T_xPS, "xPS/D");
+  double T_nclusPS;     Tout->Branch("nclusPS", &T_nclusPS, "nclusPS/D"); 
   double T_eSH;         Tout->Branch("eSH", &T_eSH, "eSH/D"); 
   double T_xSH;         Tout->Branch("xSH", &T_xSH, "xSH/D"); 
   double T_ySH;         Tout->Branch("ySH", &T_ySH, "ySH/D"); 
+  double T_nclusSH;     Tout->Branch("nclusSH", &T_nclusSH, "nclusSH/D");
+
+  //SH all clus
+  int T_Ndata_clus_id_sh;                  Tout->Branch("Ndata_clus_id_sh",&T_Ndata_clus_id_sh,"Ndata_clus_id_sh/I");
+  double T_sh_clus_E[maxbbcal];        Tout->Branch("sh_clus_e", &T_sh_clus_E, "sh_clus_e[Ndata_clus_id_sh]/D");
+  double T_sh_clus_x[maxbbcal];        Tout->Branch("sh_clus_x", &T_sh_clus_x, "sh_clus_x[Ndata_clus_id_sh]/D");
+  double T_sh_clus_y[maxbbcal];        Tout->Branch("sh_clus_y", &T_sh_clus_y, "sh_clus_y[Ndata_clus_id_sh]/D");
+  double T_sh_clus_atime[maxbbcal];    Tout->Branch("sh_clus_atime", &T_sh_clus_atime, "sh_clus_atime[Ndata_clus_id_sh]/D");
+  double T_sh_clus_id[maxbbcal];       Tout->Branch("sh_clus_id", &T_sh_clus_id, "sh_clus_id[Ndata_clus_id_sh]/D");
+  double T_sh_clus_nblk[maxbbcal];     Tout->Branch("sh_clus_nblk", &T_sh_clus_nblk, "sh_clus_nblk[Ndata_clus_id_sh]/D");
+
+  //PS all clus
+  int T_Ndata_clus_id_ps;                  Tout->Branch("Ndata_clus_id_ps",&T_Ndata_clus_id_ps,"Ndata_clus_id_ps/I");
+  double T_ps_clus_E[maxbbcal];        Tout->Branch("ps_clus_e", &T_ps_clus_E, "ps_clus_e[Ndata_clus_id_ps]/D");
+  double T_ps_clus_x[maxbbcal];        Tout->Branch("ps_clus_x", &T_ps_clus_x, "ps_clus_x[Ndata_clus_id_ps]/D");
+  double T_ps_clus_y[maxbbcal];        Tout->Branch("ps_clus_y", &T_ps_clus_y, "ps_clus_y[Ndata_clus_id_ps]/D");
+  double T_ps_clus_atime[maxbbcal];    Tout->Branch("ps_clus_atime", &T_ps_clus_atime, "ps_clus_atime[Ndata_clus_id_ps]/D");
+  double T_ps_clus_id[maxbbcal];       Tout->Branch("ps_clus_id", &T_ps_clus_id, "ps_clus_id[Ndata_clus_id_ps]/D");
+  double T_ps_clus_nblk[maxbbcal];     Tout->Branch("ps_clus_nblk", &T_ps_clus_nblk, "ps_clus_nblk[Ndata_clus_id_ps]/D");
 
   //HCAL
   double T_eHCAL;       Tout->Branch("eHCAL", &T_eHCAL, "eHCAL/D"); 
@@ -747,9 +783,11 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
 
     T_ePS = ePS;
     T_xPS = xPS;
+    T_nclusPS = nclusPS;
     T_eSH = eSH;
     T_xSH = xSH;
     T_ySH = ySH;
+    T_nclusSH = nclusSH;
 
     T_eHCAL = eHCAL[0];
     //T_e_cHCAL = e_cHCAL[0];
@@ -757,12 +795,33 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     T_yHCAL = yHCAL[0];
 
     T_Ndata_clus_id = Ndata_clus_id;
+    T_Ndata_clus_id_sh = Ndata_clus_id_sh;
+    T_Ndata_clus_id_ps = Ndata_clus_id_ps;
 
     T_nclus_HCAL = nclusHCAL;
     T_nblk_HCAL = nblkHCAL;
 
     //cout<<"here 00"<<endl;
-    
+
+    for (int i = 0; i<nclusSH; ++i){
+      T_sh_clus_E[i] = clusESH[i];
+      T_sh_clus_x[i] = clusxSH[i];
+      T_sh_clus_y[i] = clusySH[i];
+      T_sh_clus_atime[i] = clusatimeSH[i];
+      T_sh_clus_id[i] = blkidSH[i];
+      T_sh_clus_nblk[i] = nblkSH[i];
+    }
+
+    for (int i = 0; i<nclusPS; ++i){
+      T_ps_clus_E[i] = clusEPS[i];
+      T_ps_clus_x[i] = clusxPS[i];
+      T_ps_clus_y[i] = clusyPS[i];
+      T_ps_clus_atime[i] = clusatimePS[i];
+      T_ps_clus_id[i] = blkidPS[i];
+      T_ps_clus_nblk[i] = nblkPS[i];
+    }
+
+
     for (int i = 0; i<nclusHCAL; ++i){
       T_hcal_clus_E[i] = clusEHCAL[i];
       T_hcal_clus_x[i] = clusxHCAL[i];

@@ -26,7 +26,7 @@
 
 #include "../../include/gen-ana.h"
 
-int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string filebase="../outfiles/QE_sim_simc/QE_sim")
+int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/SIMC/QE_sim")
 {
 
   string configdir = "../../config/";
@@ -43,6 +43,8 @@ int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string file
   
   // seting up the desired SBS configuration
   TString conf = kin_info.conf;
+  TString target =kin_info.target;
+  TString rootfile_dir = kin_info.rootfile_dir;
   int sbsmag = kin_info.sbsmag;
   SBSconfig sbsconf(conf, sbsmag);
   sbsconf.Print();
@@ -50,8 +52,8 @@ int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string file
   
   vector<int> Ntried;
   vector<double> luminosity, genvol;
-  /*
-  TString file = rootfile_dir + "simcout/"+conf+"_He3_"+SIMC_type+"_elastic_summary.csv";
+  
+  TString file = rootfile_dir + "simcout/"+conf+"_"+target+"_elastic_simc_summary.csv";
   fstream file_csv; file_csv.open(file);
   //Check if file exists
   if (!file_csv.is_open()) {
@@ -79,7 +81,6 @@ int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string file
       if(irow == 5) luminosity.push_back(stod(cell));
     }
   }
-  */
  
   double bbtheta = sbsconf.GetBBtheta_rad();
 
@@ -183,6 +184,7 @@ int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string file
   bool pCut;            Tout->Branch("pCut", &pCut, "pCut/B");
   bool nCut;            Tout->Branch("nCut", &nCut, "nCut/B");
   double weight;        Tout->Branch("weight", &weight, "weight/D");
+  double simc_weight;        Tout->Branch("simc_weight", &simc_weight, "simc_weight/D");
   double T_mc_sigma;	Tout->Branch("mc_sigma", &T_mc_sigma, "mc_sigma/D");
   double T_mc_omega;	Tout->Branch("mc_omega", &T_mc_omega, "mc_omega/D");
   double T_fnucl;         Tout->Branch("fnucl", &T_fnucl, "fnucl/D");
@@ -289,7 +291,7 @@ int QuasiElastic_sim_simc_ana(const std::string configfilename, std::string file
     weight = mc_sigma*mc_omega;
     T_mc_sigma = mc_sigma;
     T_mc_omega = mc_omega;
-    //weight = mc_simc_weight * luminosity[run_inc] * genvol[run_inc] * (1.0 / Ntried[run_inc]);
+    simc_weight = mc_simc_weight * luminosity[run_inc] * genvol[run_inc] * (1.0 / Ntried[run_inc]);
     
     // kinematic parameters
     double ebeam = sbsconf.GetEbeam();       // Expected beam energy (GeV) [Get it from EPICS, eventually]

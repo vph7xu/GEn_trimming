@@ -1,0 +1,14 @@
+
+=== SumBranchLoopHist (entry-by-entry) ===
+Files matched : 1
+Tree          : Tout
+Expr          : weight
+Cut           : (eHCAL>0.025&&ePS>0.2&&abs(vz)<0.27&&abs((ePS+eSH)/trP-1)<0.2&&abs(dy)<0.4&&W2<1.4&&abs(dx+1.53)<0.4)
+Entries used  : 93032
+N selected    : 71088
+SUM           : 5.548928772423e-32
+Min(selected) : 2.875268815066e-37
+Max(selected) : 2.033241094115e-36
+Histogram saved: SumBranch_GEN3_H2.pdf
+Report saved   : SumBranch_GEN3_H2.txt
+

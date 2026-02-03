@@ -104,7 +104,7 @@ namespace Utilities {
 		TString conf) {             // SBS config
     // returns Q2 histogram
     int nbin=0; double hmin=-100, hmax=-100;
-    if (conf=="GEN2" || conf=="GEN3" || conf=="GEN4" || conf=="GEN4b") { nbin=100; hmin=1.; hmax=4.; } 
+    if (conf=="GEN1" || conf=="GEN2" || conf=="GEN3" || conf=="GEN4" || conf=="GEN4b") { nbin=100; hmin=1.; hmax=4.; } 
     else if (conf=="GMN14") { nbin=100; hmin=5.; hmax=10.; }
     else cerr << "[Utilities::TH1FhQ2] Enter valid SBS config!!" << endl;
     TH1F *h = new TH1F(name.c_str(), "Q^{2} Distribution (GeV^{2})", 
@@ -139,6 +139,7 @@ namespace Utilities {
 
     // seting up the desired SBS configuration
     kin_info.conf = jmgr->GetValueFromKey_str("GEN_config");
+    kin_info.target = jmgr->GetValueFromKey_str("target_type");
     kin_info.sbsmag = jmgr->GetValueFromKey<int>("SBS_magnet_percent");
 
 

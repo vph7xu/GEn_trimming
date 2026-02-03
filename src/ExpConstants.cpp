@@ -16,6 +16,8 @@ namespace expconst {
       return 5.965;
     else if(config=="GMN9")
       return 4.013;
+    else if(config=="GEN1")
+      return 2.206;
     else if(config=="GEN2")
       return 4.291;
     else if(config=="GEN3")
@@ -43,6 +45,8 @@ namespace expconst {
       return 26.5;
     else if(config=="GMN9")
       return 49.0;
+    else if(config=="GEN1")
+      return 47.5;
     else if(config=="GEN2")
       return 29.5;
     else if(config=="GEN3")
@@ -70,7 +74,7 @@ namespace expconst {
       return 1.97473;
     else if(config=="GMN9")
       return 1.550;
-    else if(config=="GEN2" || config=="GEN3" || config=="GEN4" || config=="GEN4b")
+    else if(config=="GEN1" || config=="GEN2" || config=="GEN3" || config=="GEN4" || config=="GEN4b")
       return 1.63;
     else{
       std::cerr << "Enter a valid SBS configuration!" << std::endl;
@@ -93,6 +97,8 @@ namespace expconst {
       return 29.9;
     else if(config=="GMN9")
       return 22.5;
+    else if(config=="GEN1")
+      return 34.7;
     else if(config=="GEN2")
       return 34.7;
     else if(config=="GEN3")
@@ -109,7 +115,7 @@ namespace expconst {
     if(config=="GMN1"||config=="GMN4"||config=="GMN7"||config=="GMN11"
        ||config=="GMN14"||config=="GMN8"||config=="GMN9")
       return 2.25;
-    else if(config=="GEN2" || config == "GEN3" || config=="GEN4" || config=="GEN4b")
+    else if(config=="GEN1" || config=="GEN2" || config == "GEN3" || config=="GEN4" || config=="GEN4b")
       return 2.8;
     else{
       std::cerr << "Enter a valid SBS configuration!" << std::endl;
@@ -126,7 +132,7 @@ namespace expconst {
       return 14.0;
     else if(config=="GMN11")
       return 14.5;
-    else if(config=="GEN2" || config=="GEN3" || config=="GEN4" || config=="GEN4b")
+    else if(config=="GEN1" || config=="GEN2" || config=="GEN3" || config=="GEN4" || config=="GEN4b")
       return 17.0;
     else{
       std::cerr << "Enter a valid SBS configuration!" << std::endl;
@@ -149,6 +155,8 @@ namespace expconst {
       return 29.4;
     else if(config=="GMN9")
       return 22.0;
+    else if(config=="GEN1")
+      return 34.7;
     else if(config=="GEN2")
       return 34.7;
     else if(config=="GEN3")

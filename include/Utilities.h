@@ -14,6 +14,7 @@ namespace Utilities {
 
   struct KinConf {
     TString conf;
+    TString target;
     int sbsmag;
     int model;
     int IHWP_Flip;
