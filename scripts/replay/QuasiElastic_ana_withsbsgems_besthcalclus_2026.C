@@ -2,10 +2,11 @@
 //////////////////////////////////////////////////////////
 //   Created by Provakar Datta
 //   Modified by Sean Jeffas, sj9ry@virginia.edu
-//   Modified by Vimukthi Haththotuwa Gamage, vph7xu@virginia.edu
-//   Last Modified Jan 4, 2026
+//   Last Modified July 7, 2023
 //
 //
+//   NOTE: This variant applies Atime+HighestEnergy best-HCal-cluster selection
+//         and sorts sbs.hcal.clus.* arrays by descending cluster energy each event.
 //   The purpose of this script is to take a configuraiton
 //   file for some SBS experiment and to produced some 
 //   analyzed output with cuts on good elastic events.
@@ -14,6 +15,10 @@
 //////////////////////////////////////////////////////////
 #include <vector>
 #include <iostream>
+#include <algorithm>
+#include <regex>
+#include <utility>
+#include <limits>
 
 #include "TCut.h"
 #include "TH1F.h"
@@ -25,7 +30,39 @@
 #include "TLorentzVector.h"
 
 #include "../../include/gen-ana.h"
+#include "../../include/HCalClusterSelector.h"
 
+
+
+// -------------------- helpers to avoid silent event loss --------------------
+static int ExtractRunNumberSafe(const std::string& fname){
+  std::smatch m;
+  std::regex r1(R"((\d{4,6})(?=_stream))");
+  if(std::regex_search(fname, m, r1)){
+    try { return std::stoi(m[1].str()); } catch(...) {}
+  }
+  // Fallback: last 4-6 digit group in the string
+  std::regex r2(R"((\d{4,6}))");
+  int run = -1;
+  for(auto it = std::sregex_iterator(fname.begin(), fname.end(), r2);
+      it != std::sregex_iterator(); ++it){
+    try { run = std::stoi((*it)[1].str()); } catch(...) {}
+  }
+  return run;
+}
+
+static void EnableBranchesForFormula(TTreeFormula* f){
+  if(!f) return;
+  // If you used SetBranchStatus("*",0), any leaf used in the formula must be re-enabled
+  int nc = f->GetNcodes();
+  for(int i=0;i<nc;i++){
+    TLeaf* leaf = f->GetLeaf(i);
+    if(!leaf) continue;
+    TBranch* br = leaf->GetBranch();
+    if(!br) continue;
+    br->SetStatus(1);
+  }
+}
 
 DBparse::DBInfo DBInfo;
 
@@ -53,7 +90,7 @@ void getDB(TString cfg){
 }
 
 
-int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3_2026FEB/QE_data")
+int QuasiElastic_ana_withsbsgems_besthcalclus_2026(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3/QE_data")
 {
 
   string configdir = "../../config/";
@@ -101,9 +138,9 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
 
   // setting up ROOT tree branch addresses ---------------------------------------
 
-  // setting up global cuts
+  // setting up global cuts (create formula AFTER branch-status setup)
   TCut globalcut = kin_info.globalcut;
-  TTreeFormula *GlobalCut = new TTreeFormula("GlobalCut", globalcut, C);
+  TTreeFormula *GlobalCut = nullptr;
 
   int maxNtr=1000;
   C->SetBranchStatus("*",0);
@@ -130,6 +167,19 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     epics_HALLA_p.push_back(HALLA_p);
   }
 
+
+  // Ensure EPICS vectors are sorted by event number for upper_bound lookup
+  {
+    std::vector<std::pair<double,double>> ep;
+    ep.reserve(epics_evnum.size());
+    for(size_t i=0;i<epics_evnum.size();++i) ep.emplace_back(epics_evnum[i], epics_HALLA_p[i]);
+    std::sort(ep.begin(), ep.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+    for(size_t i=0;i<ep.size();++i){
+      epics_evnum[i] = ep[i].first;
+      epics_HALLA_p[i] = ep[i].second;
+    }
+  }
+
   // Some CODA event information
   double evtime;   setrootvar::setbranch(C,"g","evtime",&evtime);
   double evnum_T;   setrootvar::setbranch(C,"g","evnum",&evnum_T);
@@ -146,7 +196,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   std::vector<void*> bbcalpsclvar_mem = {&ePS,&xPS}; 
   setrootvar::setbranch(C,"bb.ps",bbcalpsclvar,bbcalpsclvar_mem);
   
-  int maxhcal = 1000;
+  const int maxhcal = 1000;
 
   // hcal clus var
   int Ndata_clus_id;
@@ -159,7 +209,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   //hcal all clus var
   double clusEHCAL[maxhcal], clusxHCAL[maxhcal], clusyHCAL[maxhcal], clusatimeHCAL[maxhcal], clustdctimeHCAL[maxhcal], blkid[maxhcal], nblk[maxhcal];
   std::vector<std::string> hcalclmemvar = {"e","x","y","atimeblk","tdctime","id","nblk"};
-  std::vector<void*> hcalclmemvar_mem = {&clusEHCAL,&clusxHCAL,&clusyHCAL,clusatimeHCAL,&clustdctimeHCAL,&blkid,&nblk};
+  std::vector<void*> hcalclmemvar_mem = {&clusEHCAL,&clusxHCAL,&clusyHCAL,&clusatimeHCAL,&clustdctimeHCAL,&blkid,&nblk};
   setrootvar::setbranch(C, "sbs.hcal.clus", hcalclmemvar, hcalclmemvar_mem);
 
   //hcal primary clus var
@@ -180,8 +230,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   double hodo_time[maxClus]; 
   int nhodo_clus; 
   
-  //setrootvar::setbranch(C,"bb.hodotdc.clus.bar.tdc","meantime",&hodo_time);
-  setrootvar::setbranch(C,"bb.hodotdc.clus","tfinal",&hodo_time);
+  setrootvar::setbranch(C,"bb.hodotdc.clus.bar.tdc","meantime",&hodo_time);
   setrootvar::setbranch(C,"Ndata.bb.hodotdc.clus.bar.tdc","meantime",&nhodo_clus);
 
   //sbsgem
@@ -228,13 +277,11 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
 
   // tdctrig variable (N/A for simulation)
   int tdcElemN;
-  int Ndata_bb_tdctrig_tdc;
   double tdcTrig[maxNtr], tdcElem[maxNtr];
   
   std::vector<std::string> tdcvar = {"tdcelemID","tdcelemID","tdc"};
   std::vector<void*> tdcvar_mem = {&tdcElem,&tdcElemN,&tdcTrig};
   setrootvar::setbranch(C,"bb.tdctrig",tdcvar,tdcvar_mem,1);
-  setrootvar::setbranch(C,"Ndata.bb.tdctrig","tdc",&Ndata_bb_tdctrig_tdc);
   
 
   //Beam helicity variables
@@ -272,6 +319,13 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   C->SetBranchStatus("bb.etot_over_p", 1);
   C->SetBranchStatus("sbs.hcal.nclus", 1);
   
+
+  // Build the cut formula now that branches are configured/enabled
+  GlobalCut = new TTreeFormula("GlobalCut", globalcut, C);
+  GlobalCut->SetQuickLoad(kTRUE);
+  EnableBranchesForFormula(GlobalCut);
+  GlobalCut->UpdateFormulaLeaves();
+
   // defining the outputfile
   TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_sbstrackingon.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
@@ -305,6 +359,8 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   bool nCut;            Tout->Branch("nCut", &nCut, "nCut/B");
   bool fiduCut;         Tout->Branch("fiduCut", &fiduCut, "fiduCut/B");
   bool coinCut;         Tout->Branch("coinCut", &coinCut, "coinCut/B");
+  int  T_hcal_best_idx;   Tout->Branch("hcal_best_idx", &T_hcal_best_idx, "hcal_best_idx/I");
+  bool T_hcal_best_pass;  Tout->Branch("hcal_best_pass", &T_hcal_best_pass, "hcal_best_pass/B");
   //
   double T_ebeam;       Tout->Branch("ebeam", &T_ebeam, "ebeam/D");
   //kine
@@ -415,10 +471,6 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
   //double T_hcal_clus_mem_id[maxhcal]; Tout->Branch("hcal_clus_mem_id", &T_hcal_clus_mem_id, "hcal_clus_mem_id[1000]/D");
   //double T_hcal_clus_mem_nblk[maxhcal]; Tout->Branch("hcal_clus_mem_nblk", &T_hcal_clus_mem_nblk, "hcal_clus_mem_nblk[1000]/D");
 
-  //tdctrig_tdc
-  int T_Ndata_bb_tdctrig_tdc;		Tout->Branch("Ndata_bb_tdctrig_tdc",&T_Ndata_bb_tdctrig_tdc,"Ndata_bb_tdctrig_tdc/I");
-  double T_bb_tdctrig_tdc[maxNtr];		Tout->Branch("bb_tdctrig_tdc",&T_bb_tdctrig_tdc,"bb_tdctrig_tdc[Ndata_bb_tdctrig_tdc]/D");
-
   //GRINCH
   double T_grinch_track;    Tout->Branch("grinch_track", &T_grinch_track, "grinch_track/D");
   double T_grinch_clus_size;    Tout->Branch("grinch_clus_size", &T_grinch_clus_size, "grinch_clus_size/D");
@@ -504,17 +556,17 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     if (nevent == 1 || currenttreenum != treenum) {
       treenum = currenttreenum;
       GlobalCut->UpdateFormulaLeaves();
+      EnableBranchesForFormula(GlobalCut);
 
       //Get the run number
       string s = C->GetFile()->GetName();
-      int start = s.find("_stream0");
-      start -= 4;
-      int end = start + 4;
-      T_runnum = stoi(s.substr(start,end - start));
+      T_runnum = ExtractRunNumberSafe(s);
 
       //Get the time this run started
       auto* Run_Data = C->GetFile()->Get<THaRunBase>("Run_Data");
-      TDatime run_time = Run_Data->GetDate();
+      TDatime run_time;
+      if(Run_Data) run_time = Run_Data->GetDate();
+      else run_time.Set();
       run_time.Set(run_time.GetYear(),run_time.GetMonth(),run_time.GetDay(),run_time.GetHour(),run_time.GetMinute(),0);
       run_time_unix = run_time.Convert();
 
@@ -522,7 +574,8 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
       //First we do some stuff to max sure we dont reach the file limit
       int file_nevents = C->GetTree()->GetEntries();
       int max_events = 8000;
-      if(file_nevents < max_events) max_events = file_nevents - 100;
+      if(file_nevents <= 0) max_events = 0;
+      else max_events = std::min(max_events, std::max(0, file_nevents - 100));
       
       int start_event = nevent;
       while (C->GetEntry(start_event++) && start_event < nevent + max_events){
@@ -535,6 +588,56 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     bool passedgCut = GlobalCut->EvalInstance(0) != 0;  
     
     if (!passedgCut) continue;
+
+
+    // ------------------------------------------------------------------
+    // HCAL "best cluster" selection (Atime+HighestEnergy) using the
+    // *cluster arrays* (sbs.hcal.clus.*):
+    //   1) Sort clus* arrays by descending energy (in-place)
+    //   2) Among the top 5 clusters, choose the first that passes
+    //      the coincidence-time cut: (clusatimeHCAL - atimeSH) in window.
+    //
+    // NOTE: eHCAL/xHCAL/... are "primary" HCAL variables (sbs.hcal.*).
+    //       We intentionally use sbs.hcal.clus.* here so that dx/dy and
+    //       other quantities follow the *selected best cluster*.
+    // ------------------------------------------------------------------
+    int nclus_i = (int) Ndata_clus_id; // Ndata.sbs.hcal.clus.id
+    if( nclus_i <= 0 ) nclus_i = (int) nclusHCAL; // fallback
+    if( nclus_i > maxhcal ) nclus_i = maxhcal;
+    if( nclus_i <= 0 ) continue; // nothing to do without HCAL clusters
+
+    bool hcal_best_pass_local = false;
+    int ihcal = hcalclus::sort_and_select_best(
+        clusEHCAL, clusatimeHCAL, clusxHCAL, clusyHCAL,
+        clustdctimeHCAL, blkid, nblk,
+        nclus_i,
+        atimeSH,
+        coin_time_cut[0], coin_time_cut[1], Nsigma_coin_time,
+        hcal_best_pass_local,
+        5 );
+    if( ihcal < 0 ) continue;
+    T_hcal_best_idx  = ihcal;
+    T_hcal_best_pass = hcal_best_pass_local;
+
+    // ---- guards to prevent undefined values / out-of-bounds from biasing selection ----
+    const int ntr = static_cast<int>(ntrack);
+    if(ntr < 1) continue;
+
+    const int ntr_sbs = static_cast<int>(ntrack_sbs);
+    if(ntr_sbs < 1) continue;
+
+    int Nclus_raw = static_cast<int>(nclusHCAL);
+    if(Nclus_raw < 1) continue;
+
+    // Clamp variable-length arrays before copying to output buffers
+    int Ndata_clus_id_safe = Ndata_clus_id;
+    if(Ndata_clus_id_safe < 0) Ndata_clus_id_safe = 0;
+    if(Ndata_clus_id_safe > maxhcal) Ndata_clus_id_safe = maxhcal;
+
+    int nhodo_safe = nhodo_clus;
+    if(nhodo_safe < 0) nhodo_safe = 0;
+    if(nhodo_safe > maxClus) nhodo_safe = maxClus;
+
    
     //cout<<"global passed "<<endl;
     
@@ -560,18 +663,16 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
       T_err_He3Pol = it->second.second;
     }
     T_datetime = time_abs;
-   
-    //cout<<"pass checkpoint 1"<<endl;
-
+    
     //Timing Information
-    T_hcal_time = atimeHCAL[0];
+    T_hcal_time = clusatimeHCAL[ihcal];
     T_bbcal_time = atimeSH;
       
-    T_nhodo_clus = nhodo_clus;
-    for(int iclus = 0; iclus < nhodo_clus; iclus++)
+    T_nhodo_clus = nhodo_safe;
+    for(int iclus = 0; iclus < nhodo_safe; iclus++)
       T_hodo_time[iclus] = hodo_time[iclus];
       
-    double coin_time = atimeHCAL[0] - atimeSH;  
+    double coin_time = clusatimeHCAL[ihcal] - atimeSH;  
     T_coin_time = coin_time; 
     h_coin_time->Fill(coin_time);
       
@@ -598,30 +699,16 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     
     // kinematic parameters
     //double ebeam = sbsconf.GetEbeam();       // Expected beam energy (GeV) [Get it from EPICS, eventually]
-
-    //cout<<"pass checkpoint 2"<<endl;
-
-    size_t j   = up(evnum_T);        // first EPICS evnum > current event
-    size_t idx = (j==0) ? 0 : j-1;    // take the latest EPICS sample <= event evnum
     
-    double pMeV = 0.0;
-
-    if (epics_HALLA_p.size()>0){
+    double ebeam = sbsconf.GetEbeam(); // fallback if EPICS is missing/empty
+    if(!epics_evnum.empty() && !epics_HALLA_p.empty()){
+      size_t j   = up(evnum_T);            // first EPICS evnum > current event
+      size_t idx = (j==0) ? 0 : j-1;       // latest EPICS sample <= event evnum
       if(idx >= epics_HALLA_p.size()) idx = epics_HALLA_p.size()-1;
-      pMeV = epics_HALLA_p[idx];
+      double pMeV = epics_HALLA_p[idx];
+      ebeam = pMeV/1000.0;
     }
-    else{
-      pMeV= sbsconf.GetEbeam() * 1000; 
-    }
-    
-    //double EMeV = std::sqrt(pMeV*pMeV + me*me);  // exact; for GeV electrons E≈p
 
-    //ebeam_MeV = (float)EMeV;
-    //ebeam_GeV = (float)(EMeV/1000.0);
-   
-    //cout<<"pass checkpoint 3"<<endl;
-
-    double ebeam = pMeV/1000.0;
 
     double ebeam_corr = ebeam; //- MeanEloss;
     double precon = p[0]; //+ MeanEloss_outgoing
@@ -652,9 +739,6 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     // model 2 = uses 4-vector calculation 
     TVector3 pNhat;                   // 3-momentum of the recoil nucleon (Unit)
     double Q2recon, W2recon;
-
-    //cout<<"pass checkpoint 3"<<endl;
-
     if (model == 0) {
       nu = Pe.E() - Peprime.E();
       pN_expect = kine::pN_expect(nu, Ntype.Data());
@@ -775,21 +859,17 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     T_xSH = xSH;
     T_ySH = ySH;
 
-    T_eHCAL = eHCAL[0];
+    T_eHCAL = clusEHCAL[ihcal];
     //T_e_cHCAL = e_cHCAL[0];
-    T_xHCAL = xHCAL[0];
-    T_yHCAL = yHCAL[0];
+    T_xHCAL = clusxHCAL[ihcal];
+    T_yHCAL = clusyHCAL[ihcal];
 
-    //cout<<"pass checkpoint 2"<<endl;
-
-    T_Ndata_clus_id = Ndata_clus_id;
+    T_Ndata_clus_id = Ndata_clus_id_safe;
 
     T_nclus_HCAL = nclusHCAL;
     T_nblk_HCAL = nblkHCAL;
 
     //cout<<"here 00"<<endl;
-    
-    //cout<<"pass checkpoint 3"<<endl;
     
     for (int i = 0; i<nclusHCAL; ++i){
       T_hcal_clus_E[i] = clusEHCAL[i];
@@ -810,21 +890,15 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
       T_hcal_clus_mem_id[i] = clusmemblkid[i];
     }
     */
- 
-    T_Ndata_bb_tdctrig_tdc=Ndata_bb_tdctrig_tdc; 
-
-    for (int i=0; i<T_Ndata_bb_tdctrig_tdc; ++i){
-      T_bb_tdctrig_tdc[i]=tdcTrig[i];
-    }
 
     //cout<<"here 3"<<endl;
 
     // Expected position of the q vector at HCAL
     vector<double> xyHCAL_exp; // xyHCAL_exp[0] = xHCAL_exp & xyHCAL_exp[1] = yHCAL_exp
-    double theta_pq = kine::theta_pq(vertex, HCAL_origin, pNhat, xHCAL[0], yHCAL[0]);
+    double theta_pq = kine::theta_pq(vertex, HCAL_origin, pNhat, clusxHCAL[ihcal], clusyHCAL[ihcal]);
     kine::GetxyHCALexpect(vertex, pNhat, HCAL_origin, HCAL_axes, xyHCAL_exp);
-    double dx = xHCAL[0] - xyHCAL_exp[0];  
-    double dy = yHCAL[0] - xyHCAL_exp[1]; 
+    double dx = clusxHCAL[ihcal] - xyHCAL_exp[0];  
+    double dy = clusyHCAL[ihcal] - xyHCAL_exp[1]; 
 
     //cout<<"here 2"<<endl;
     //if( nevent % 1000 == 0 ){
@@ -840,7 +914,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
     T_dy = dy;
 
     // HCAL active area and safety margin cuts [Fiducial region]
-    bool AR_cut = cut::inHCAL_activeA(xHCAL[0], yHCAL[0], hcal_active_area);
+    bool AR_cut = cut::inHCAL_activeA(clusxHCAL[ihcal], clusyHCAL[ihcal], hcal_active_area);
     bool FR_cut = cut::inHCAL_fiducial(xyHCAL_exp[0], xyHCAL_exp[1], sbs_kick, hcal_safety_margin);
 
     // HCAL cuts
@@ -858,7 +932,7 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
       //if (fiduCut) { //No fiducial cut for GEN?
 	h_dxHCAL->Fill(dx);
 	h_dyHCAL->Fill(dy);
-	h2_rcHCAL->Fill(cblkHCAL[0], rblkHCAL[0]);
+	h2_rcHCAL->Fill(cblkHCAL[ihcal], rblkHCAL[ihcal]);
 	h2_dxdyHCAL->Fill(dy, dx);
 	
 	if (pCut) h2_xyHCAL_p->Fill(xyHCAL_exp[1], xyHCAL_exp[0] - sbs_kick);
@@ -908,3 +982,4 @@ int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string f
    
   return 0;
 }
+
