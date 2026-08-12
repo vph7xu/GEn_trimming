@@ -53,7 +53,7 @@ void getDB(TString cfg){
 }
 
 
-int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/He3_2026FEB/QE_data")
+int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/pass3/H2/SBSON/QE_data")
 {
 
   string configdir = "../../config/";

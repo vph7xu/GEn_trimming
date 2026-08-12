@@ -26,7 +26,7 @@
 
 #include "../../include/gen-ana.h"
 
-int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/QE_sim/PS_test/QE_sim")
+int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/Sim/Elastic/Inel_sim")
 {
 
   string configdir = "../../config/";
@@ -138,9 +138,9 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   setrootvar::setbranch(C,"bb.tr",trvar,trvar_mem);
 
   //MC variables
-  double mc_sigma, mc_omega, mc_fnucl, mc_simc_weight;
-  std::vector<std::string> mc = {"mc_sigma","mc_omega","mc_fnucl","simc_Weight"};
-  std::vector<void*> mc_mem = {&mc_sigma,&mc_omega,&mc_fnucl,&mc_simc_weight};
+  double mc_sigma, mc_omega, mc_fnucl, mc_simc_weight, mc_ep, mc_np, mc_epx, mc_epy, mc_epz, mc_npx, mc_npy, mc_npz;
+  std::vector<std::string> mc = {"mc_sigma","mc_omega","mc_fnucl","simc_Weight","mc_ep","mc_np","mc_epx","mc_epy","mc_epz","mc_npx","mc_npy","mc_npz"};
+  std::vector<void*> mc_mem = {&mc_sigma,&mc_omega,&mc_fnucl,&mc_simc_weight,&mc_ep,&mc_np,&mc_epx,&mc_epy,&mc_epz,&mc_npx,&mc_npy,&mc_npz};
   setrootvar::setbranch(C,"MC",mc,mc_mem);
 
   double mc_vx[maxNtr], mc_vy[maxNtr], mc_px[maxNtr], mc_py[maxNtr], mc_pz[maxNtr];
@@ -154,7 +154,7 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   C->SetBranchStatus("sbs.hcal.nclus", 1);
   
   // defining the outputfile
-  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_elastic.root", 
+  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_inelastic.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
   TFile *fout = new TFile(outFile.Data(), "RECREATE");
 
@@ -185,7 +185,15 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   double weight;        Tout->Branch("weight", &weight, "weight/D");
   double T_mc_sigma;	Tout->Branch("mc_sigma", &T_mc_sigma, "mc_sigma/D");
   double T_mc_omega;	Tout->Branch("mc_omega", &T_mc_omega, "mc_omega/D");
-  double T_fnucl;         Tout->Branch("fnucl", &T_fnucl, "fnucl/D");
+  double T_mc_ep;       Tout->Branch("mc_ep", &T_mc_ep, "mc_ep/D");
+  double T_mc_np;       Tout->Branch("mc_np", &T_mc_np, "mc_np/D"); 
+  double T_mc_epx;      Tout->Branch("mc_epx", &T_mc_epx, "mc_epx/D");
+  double T_mc_epy;      Tout->Branch("mc_epy", &T_mc_epy, "mc_epy/D");
+  double T_mc_epz;      Tout->Branch("mc_epz", &T_mc_epz, "mc_epz/D");
+  double T_mc_npx;       Tout->Branch("mc_npx", &T_mc_npx, "mc_npx/D"); 
+  double T_mc_npy;       Tout->Branch("mc_npy", &T_mc_npy, "mc_npy/D"); 
+  double T_mc_npz;       Tout->Branch("mc_npz", &T_mc_npz, "mc_npz/D"); 
+  double T_fnucl;        Tout->Branch("fnucl", &T_fnucl, "fnucl/D");
   bool fiduCut;         Tout->Branch("fiduCut", &fiduCut, "fiduCut/B");
   bool coinCut;         Tout->Branch("coinCut", &coinCut, "coinCut/B");
   //
@@ -289,6 +297,15 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
     weight = mc_sigma*mc_omega;
     T_mc_sigma = mc_sigma;
     T_mc_omega = mc_omega;
+    T_mc_ep = mc_ep;
+    T_mc_np = mc_np; 
+    T_mc_epx = mc_epx;
+    T_mc_epy = mc_epy;
+    T_mc_epz = mc_epz;
+    T_mc_npx = mc_npx; 
+    T_mc_npy = mc_npy; 
+    T_mc_npz = mc_npz; 
+
     //weight = mc_simc_weight * luminosity[run_inc] * genvol[run_inc] * (1.0 / Ntried[run_inc]);
     
     // kinematic parameters
