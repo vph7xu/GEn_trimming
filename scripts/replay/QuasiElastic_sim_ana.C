@@ -26,7 +26,7 @@
 
 #include "../../include/gen-ana.h"
 
-int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/Sim/Elastic/Inel_sim")
+int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/Sim/Inelastic/Inel_sim")
 {
 
   string configdir = "../../config/";
@@ -51,7 +51,7 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   vector<int> Ntried;
   vector<double> luminosity, genvol;
   /*
-  TString file = rootfile_dir + "simcout/"+conf+"_He3_"+SIMC_type+"_elastic_summary.csv";
+  TString file = rootfile_dir + "simcout/"+conf+"_He3_"+SIMC_type+"_inelastic_summary.csv";
   fstream file_csv; file_csv.open(file);
   //Check if file exists
   if (!file_csv.is_open()) {
@@ -127,6 +127,17 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   std::vector<void*> hcalclvar_mem = {&eHCAL,&xHCAL,&yHCAL,&rblkHCAL,&cblkHCAL,&idblkHCAL,&tdctimeHCAL};
   setrootvar::setbranch(C, "sbs.hcal", hcalclvar, hcalclvar_mem);
   
+  //gem_track_var
+  double nhits_on_track[maxNtr];
+  std::vector<std::string> gemtrvar = {"nhits"};
+  std::vector<void*> gemtrvar_mem = {&nhits_on_track};
+  setrootvar::setbranch(C,"bb.gem.track",gemtrvar,gemtrvar_mem);
+
+  //sbs_gem_track_var
+  double nhits_on_track_sbs[maxNtr];
+  std::vector<std::string> gemtrvar_sbs = {"nhits"};
+  std::vector<void*> gemtrvar_mem_sbs = {&nhits_on_track_sbs};
+  setrootvar::setbranch(C,"sbs.gem.track",gemtrvar_sbs,gemtrvar_mem_sbs);
 
   // track var
   double ntrack, p[maxNtr],px[maxNtr],py[maxNtr],pz[maxNtr],xTr[maxNtr],yTr[maxNtr],thTr[maxNtr],phTr[maxNtr];
@@ -137,10 +148,19 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   std::vector<void*> trvar_mem = {&ntrack,&p,&px,&py,&pz,&vx,&vy,&vz,&xtgt,&ytgt,&thtgt,&phtgt,&xfp,&yfp,&thfp,&phfp};
   setrootvar::setbranch(C,"bb.tr",trvar,trvar_mem);
 
+  //sbs track var
+  double ntrack_sbs, p_sbs[maxNtr], px_sbs[maxNtr], py_sbs[maxNtr], pz_sbs[maxNtr], xTr_sbs[maxNtr], yTr_sbs[maxNtr], thTr_sbs[maxNtr], phTr_sbs[maxNtr];
+  double vx_sbs[maxNtr], vy_sbs[maxNtr], vz_sbs[maxNtr];
+  double xtgt_sbs[maxNtr], ytgt_sbs[maxNtr], thtgt_sbs[maxNtr], phtgt_sbs[maxNtr];
+  double xfp_sbs[maxNtr], yfp_sbs[maxNtr], thfp_sbs[maxNtr], phfp_sbs[maxNtr];
+  std::vector<std::string> sbs_trvar = {"n","p","px","py","pz","vx","vy","vz","tg_x","tg_y","tg_th","tg_ph","r_x","r_y","r_th","r_ph"};
+  std::vector<void*> sbs_trvar_mem = {&ntrack_sbs,&p_sbs,&px_sbs,&py_sbs,&pz_sbs,&vx_sbs,&vy_sbs,&vz_sbs,&xtgt_sbs,&ytgt_sbs,&thtgt_sbs,&phtgt_sbs,&xfp_sbs,&yfp_sbs,&thfp_sbs,&phfp_sbs};
+  setrootvar::setbranch(C,"sbs.tr",sbs_trvar,sbs_trvar_mem);
+
   //MC variables
-  double mc_sigma, mc_omega, mc_fnucl, mc_simc_weight, mc_ep, mc_np, mc_epx, mc_epy, mc_epz, mc_npx, mc_npy, mc_npz;
-  std::vector<std::string> mc = {"mc_sigma","mc_omega","mc_fnucl","simc_Weight","mc_ep","mc_np","mc_epx","mc_epy","mc_epz","mc_npx","mc_npy","mc_npz"};
-  std::vector<void*> mc_mem = {&mc_sigma,&mc_omega,&mc_fnucl,&mc_simc_weight,&mc_ep,&mc_np,&mc_epx,&mc_epy,&mc_epz,&mc_npx,&mc_npy,&mc_npz};
+  double mc_sigma, mc_omega, mc_fnucl, mc_simc_weight, mc_ep, mc_np, mc_epx, mc_epy, mc_epz, mc_npx, mc_npy, mc_npz, mc_nucl;
+  std::vector<std::string> mc = {"mc_sigma","mc_omega","mc_fnucl","simc_Weight","mc_ep","mc_np","mc_epx","mc_epy","mc_epz","mc_npx","mc_npy","mc_npz","mc_nucl"};
+  std::vector<void*> mc_mem = {&mc_sigma,&mc_omega,&mc_fnucl,&mc_simc_weight,&mc_ep,&mc_np,&mc_epx,&mc_epy,&mc_epz,&mc_npx,&mc_npy,&mc_npz,&mc_nucl};
   setrootvar::setbranch(C,"MC",mc,mc_mem);
 
   double mc_vx[maxNtr], mc_vy[maxNtr], mc_px[maxNtr], mc_py[maxNtr], mc_pz[maxNtr];
@@ -154,9 +174,15 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   C->SetBranchStatus("sbs.hcal.nclus", 1);
   
   // defining the outputfile
-  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_inelastic.root", 
+  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_elastic_sbstracking_on.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
   TFile *fout = new TFile(outFile.Data(), "RECREATE");
+
+  std::cout << "Old max tree size = "<< TTree::GetMaxTreeSize()<< " bytes" << std::endl;
+
+  TTree::SetMaxTreeSize(1000LL * 1024LL * 1024LL * 1024LL);
+
+  std::cout << "New max tree size = "<< TTree::GetMaxTreeSize()<< " bytes" << std::endl;
 
   // defining histograms
   TH1F *h_W = Utilities::TH1FhW("h_W");
@@ -194,6 +220,7 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   double T_mc_npy;       Tout->Branch("mc_npy", &T_mc_npy, "mc_npy/D"); 
   double T_mc_npz;       Tout->Branch("mc_npz", &T_mc_npz, "mc_npz/D"); 
   double T_fnucl;        Tout->Branch("fnucl", &T_fnucl, "fnucl/D");
+  double T_nucl;        Tout->Branch("nucl", &T_nucl, "nucl/D");
   bool fiduCut;         Tout->Branch("fiduCut", &fiduCut, "fiduCut/B");
   bool coinCut;         Tout->Branch("coinCut", &coinCut, "coinCut/B");
   //
@@ -217,12 +244,41 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   double T_xfp;         Tout->Branch("xfp", &T_xfp, "xfp/D");
   double T_yfp;         Tout->Branch("yfp", &T_yfp, "yfp/D");
   double T_thfp;        Tout->Branch("thfp", &T_thfp, "thfp/D");
-  double T_phfp;        Tout->Branch("phfp", &T_phfp, "phfp/D");  
+  double T_phfp;        Tout->Branch("phfp", &T_phfp, "phfp/D"); 
+  double T_ntrack;      Tout->Branch("ntrack", &T_ntrack,"ntrack/D"); 
   double T_trP;         Tout->Branch("trP", &T_trP, "trP/D");
+  double T_trPx;         Tout->Branch("trPx", &T_trPx, "trPx/D");
+  double T_trPy;         Tout->Branch("trPy", &T_trPy, "trPy/D");
+  double T_trPz;         Tout->Branch("trPz", &T_trPz, "trPz/D");
   double T_trX;         Tout->Branch("trX", &T_trX, "trX/D");
   double T_trY;         Tout->Branch("trY", &T_trY, "trY/D");
   double T_trTh;        Tout->Branch("trTh", &T_trTh, "trTh/D");
   double T_trPh;        Tout->Branch("trPh", &T_trPh, "trPh/D");
+  double T_nhits_on_track; Tout->Branch("nhits_on_track", &T_nhits_on_track, "nhits_on_track/D");
+
+  //sbs track
+  double T_vz_sbs;          Tout->Branch("vz_sbs", &T_vz_sbs, "vz_sbs/D");
+  double T_vx_sbs;          Tout->Branch("vx_sbs", &T_vx_sbs, "vx_sbs/D");
+  double T_vy_sbs;          Tout->Branch("vy_sbs", &T_vy_sbs, "vy_sbs/D");
+  double T_xtgt_sbs;        Tout->Branch("xtgt_sbs", &T_xtgt_sbs, "xtgt_sbs/D");
+  double T_ytgt_sbs;        Tout->Branch("ytgt_sbs", &T_ytgt_sbs, "ytgt_sbs/D");
+  double T_thtgt_sbs;       Tout->Branch("thtgt_sbs", &T_thtgt_sbs, "thtgt_sbs/D");
+  double T_phtgt_sbs;       Tout->Branch("phtgt_sbs", &T_phtgt_sbs, "phtgt_sbs/D");
+  double T_xfp_sbs;         Tout->Branch("xfp_sbs", &T_xfp_sbs, "xfp_sbs/D");
+  double T_yfp_sbs;         Tout->Branch("yfp_sbs", &T_yfp_sbs, "yfp_sbs/D");
+  double T_thfp_sbs;        Tout->Branch("thfp_sbs", &T_thfp_sbs, "thfp_sbs/D");
+  double T_phfp_sbs;        Tout->Branch("phfp_sbs", &T_phfp_sbs, "phfp_sbs/D");
+  double T_ntrack_sbs;      Tout->Branch("ntrack_sbs", &T_ntrack_sbs,"ntrack_sbs/D"); 
+  double T_trP_sbs;         Tout->Branch("trP_sbs", &T_trP_sbs, "trP_sbs/D");
+  double T_trPx_sbs;         Tout->Branch("trPx_sbs", &T_trPx_sbs, "trPx_sbs/D");
+  double T_trPy_sbs;         Tout->Branch("trPy_sbs", &T_trPy_sbs, "trPy_sbs/D");
+  double T_trPz_sbs;         Tout->Branch("trPz_sbs", &T_trPz_sbs, "trPz_sbs/D");
+  double T_trX_sbs;         Tout->Branch("trX_sbs", &T_trX_sbs, "trX_sbs/D");
+  double T_trY_sbs;         Tout->Branch("trY_sbs", &T_trY_sbs, "trY_sbs/D");
+  double T_trTh_sbs;        Tout->Branch("trTh_sbs", &T_trTh_sbs, "trTh_sbs/D");
+  double T_trPh_sbs;        Tout->Branch("trPh_sbs", &T_trPh_sbs, "trPh_sbs/D");
+  double T_nhits_on_track_sbs; Tout->Branch("nhits_on_track_sbs", &T_nhits_on_track_sbs, "nhits_on_track_sbs/D");
+
   //BBCAL
   double T_ePS;         Tout->Branch("ePS", &T_ePS, "ePS/D"); 
   double T_eSH;         Tout->Branch("eSH", &T_eSH, "eSH/D"); 
@@ -384,6 +440,7 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
     T_etheta = etheta;
     T_pcentral = pcentral;
     T_fnucl = mc_fnucl;
+    T_nucl = mc_nucl;
 
     T_vz = vz[0];
     T_vx = mc_vx[0];
@@ -396,12 +453,39 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
     T_yfp = yfp[0];
     T_thfp = thfp[0];
     T_phfp = phfp[0];
+    T_ntrack = ntrack;
     T_trP = p[0];
+    T_trPx = px[0];
+    T_trPy = py[0];
+    T_trPz = pz[0];
     T_trX = xTr[0];
     T_trY = yTr[0];
     T_trTh = thTr[0];
     T_trPh = phTr[0];
+    T_nhits_on_track = nhits_on_track[0];
 
+    T_ntrack_sbs = ntrack_sbs;
+    T_vz_sbs = vz_sbs[0];
+    T_vx_sbs = mc_vx[0];//not sure, have to verify
+    T_vy_sbs = mc_vy[0];//not sure, have to verify
+    T_xtgt_sbs = xtgt_sbs[0];
+    T_ytgt_sbs = ytgt_sbs[0];
+    T_thtgt_sbs = thtgt_sbs[0];
+    T_phtgt_sbs = phtgt_sbs[0];
+    T_xfp_sbs = xfp_sbs[0];
+    T_yfp_sbs = yfp_sbs[0];
+    T_thfp_sbs = thfp_sbs[0];
+    T_phfp_sbs = phfp_sbs[0];
+    T_trP_sbs = p_sbs[0];
+    T_trPx_sbs = px_sbs[0];
+    T_trPy_sbs = py_sbs[0];
+    T_trPz_sbs = pz_sbs[0];
+    T_trX_sbs = xTr_sbs[0];
+    T_trY_sbs = yTr_sbs[0];
+    T_trTh_sbs = thTr_sbs[0];
+    T_trPh_sbs = phTr_sbs[0];
+    T_nhits_on_track_sbs = nhits_on_track_sbs[0];
+    
     T_ePS = ePS;
     T_eSH = eSH;
 

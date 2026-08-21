@@ -14,9 +14,6 @@
 //////////////////////////////////////////////////////////
 #include <vector>
 #include <iostream>
-#include <algorithm>
-#include <cmath>
-#include <limits>
 
 #include "TCut.h"
 #include "TH1F.h"
@@ -56,11 +53,7 @@ void getDB(TString cfg){
 }
 
 
-int QuasiElastic_ana_withsbsgems(
-    const std::string configfilename,
-    std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/pass3/He3/ALL/QE_data",
-    std::string sbsoff_dir="",
-    std::string sbson_dir="")
+int QuasiElastic_ana_withsbsgems(const std::string configfilename, std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/pass3/H2/SBSON/QE_data")
 {
 
   string configdir = "../../config/";
@@ -73,62 +66,11 @@ int QuasiElastic_ana_withsbsgems(
   // reading input config file ---------------------------------------
   Utilities::KinConf kin_info = Utilities::LoadKinConfig(configdir + configfilename,1);
 
-  // ------------------------------------------------------------------
-  // Dual-replay DATA input
-  //   SBSOFF = authoritative event sample for BB/HCAL/kinematics
-  //   SBSON  = SBS GEM/SBS tracking companion for runs that exist there
-  // ------------------------------------------------------------------
-  auto replace_dir_token = [](std::string path, const std::string &from,
-                              const std::string &to) {
-    const std::size_t pos = path.find(from);
-    if (pos != std::string::npos) path.replace(pos, from.size(), to);
-    return path;
-  };
-
-  if (sbsoff_dir.empty()) {
-    sbsoff_dir = kin_info.rootfile_dir;
-    if (sbsoff_dir.find("SBSON") != std::string::npos)
-      sbsoff_dir = replace_dir_token(sbsoff_dir, "SBSON", "SBSOFF");
-  }
-
-  if (sbson_dir.empty()) {
-    sbson_dir = sbsoff_dir;
-    if (sbson_dir.find("SBSOFF") != std::string::npos)
-      sbson_dir = replace_dir_token(sbson_dir, "SBSOFF", "SBSON");
-  }
-
-  if (sbsoff_dir == sbson_dir) {
-    std::cerr << "ERROR: could not determine distinct SBSOFF and SBSON directories.\n"
-              << "Pass them explicitly as the 3rd and 4th macro arguments." << std::endl;
-    return 2;
-  }
-
-  // An SBS-track requirement in the global cut would bias a tracking-efficiency
-  // denominator and would also reject SBSOFF-only runs.
-  const std::string globalcut_text = kin_info.globalcut.GetTitle();
-  if (globalcut_text.find("sbs.gem") != std::string::npos ||
-      globalcut_text.find("sbs.tr")  != std::string::npos) {
-    std::cerr << "ERROR: global_cut contains an SBS tracking requirement:\n  "
-              << globalcut_text << "\n"
-              << "Use the normal SBSOFF data config (for example GEN2_He3.cfg), "
-              << "not a config whose global_cut requires sbs.gem/sbs.tr." << std::endl;
-    return 3;
-  }
-
-  kin_info.rootfile_dir = sbsoff_dir;
-
-  std::cout << "SBSOFF primary data directory : " << sbsoff_dir << std::endl;
-  std::cout << "SBSON companion data directory: " << sbson_dir << std::endl;
-
   getDB(kin_info.conf);
 
-  // Primary DATA chains.  is_data=1 is intentional: no simulation is loaded.
+  // parsing trees
   TChain *C = LoadRawRootFiles(kin_info, 1);
   TChain *E = LoadRawRootFiles_E(kin_info, 1);
-
-  // SBSON is loaded one run at a time only when that run exists in the
-  // SBSOFF primary chain. This avoids duplicating physics events.
-  TChain *Csbs = nullptr;
 
   // seting up the desired SBS configuration
   TString conf = kin_info.conf;
@@ -255,7 +197,7 @@ int QuasiElastic_ana_withsbsgems(
 
   int nbb_gem_nhits;
 
-  // sbs.gem.track is bound to the per-run SBSON companion chain below.
+  setrootvar::setbranch(C,"sbs.gem.track","nhits",&sbs_gem_nhits);
   setrootvar::setbranch(C,"bb.gem.track","nhits",&bb_gem_nhits);  
   setrootvar::setbranch(C,"bb.gem.track","x",&bb_gem_track_x);  
   setrootvar::setbranch(C,"bb.gem.track","y",&bb_gem_track_y);  
@@ -282,7 +224,7 @@ int QuasiElastic_ana_withsbsgems(
   double xfp_sbs[maxNtr],yfp_sbs[maxNtr],thfp_sbs[maxNtr],phfp_sbs[maxNtr];
   std::vector<std::string> sbstrvar ={"n","chi2","p","px","py","pz","vx","vy","vz","tg_y","tg_th","tg_ph","r_x","r_y","r_th","r_ph","x","y","th","ph"};
   std::vector<void*> sbstrvar_mem = {&ntrack_sbs,&chi2_sbs,&p_sbs,&px_sbs,&py_sbs,&pz_sbs,&vx_sbs,&vy_sbs,&vz_sbs,&ytgt_sbs,&thtgt_sbs,&phtgt_sbs,&xfp_sbs,&yfp_sbs,&thfp_sbs,&phfp_sbs,&xTr_sbs,&yTr_sbs,&thTr_sbs,&phTr_sbs};
-  // sbs.tr is bound to the per-run SBSON companion chain below.
+  setrootvar::setbranch(C,"sbs.tr",sbstrvar,sbstrvar_mem);
 
   // tdctrig variable (N/A for simulation)
   int tdcElemN;
@@ -356,10 +298,6 @@ int QuasiElastic_ana_withsbsgems(
   // Defining interesting ROOT tree branches 
   TTree *Tout = new TTree("Tout", "");
   int T_runnum;         Tout->Branch("runnum", &T_runnum, "runnum/I");
-  Long64_t T_evnum;     Tout->Branch("evnum", &T_evnum, "evnum/L");
-  bool T_run_has_sbson;     Tout->Branch("run_has_sbson", &T_run_has_sbson, "run_has_sbson/O");
-  bool T_sbson_event_match; Tout->Branch("sbson_event_match", &T_sbson_event_match, "sbson_event_match/O");
-  bool T_has_sbs_track;     Tout->Branch("has_sbs_track", &T_has_sbs_track, "has_sbs_track/O");
   TDatime T_datetime;   Tout->Branch("datetime", "TDatime", &T_datetime);
   //cuts
   bool WCut;            Tout->Branch("WCut", &WCut, "WCut/B");
@@ -540,9 +478,8 @@ int QuasiElastic_ana_withsbsgems(
   std::cout << std::endl;
   long nevent = 0, nevents = C->GetEntries(); 
   int treenum = 0, currenttreenum = 0, currentrunnum = 0;
-  bool run_has_sbson = false;
-  int IHWP_run = -100;
-  time_t run_time_unix;
+  int IHWP_run = -100;  
+  time_t run_time_unix;  
 
 
 
@@ -575,45 +512,6 @@ int QuasiElastic_ana_withsbsgems(
       int end = start + 4;
       T_runnum = stoi(s.substr(start,end - start));
 
-      // Load/reload the SBSON companion only when the run number changes.
-      if (T_runnum != currentrunnum) {
-        currentrunnum = T_runnum;
-        run_has_sbson = false;
-
-        if (Csbs) {
-          delete Csbs;
-          Csbs = nullptr;
-        }
-
-        Utilities::KinConf sbs_run_info = kin_info;
-        sbs_run_info.rootfile_dir = sbson_dir;
-        sbs_run_info.runnums.clear();
-        sbs_run_info.runnums.push_back(T_runnum);
-        sbs_run_info.nruns = 1;
-
-        // DATA only. If this run is absent from SBSON, the chain has 0 entries.
-        Csbs = LoadRawRootFiles(sbs_run_info, 1);
-        run_has_sbson = (Csbs && Csbs->GetEntries() > 0);
-
-        if (run_has_sbson) {
-          Csbs->SetBranchStatus("*", 0);
-          Csbs->SetBranchStatus("g.evnum", 1);
-          setrootvar::setbranch(Csbs,"sbs.gem.track","nhits",&sbs_gem_nhits);
-          setrootvar::setbranch(Csbs,"sbs.tr",sbstrvar,sbstrvar_mem);
-
-          const Long64_t nindexed = Csbs->BuildIndex("g.evnum");
-          std::cout << "SBSON run " << T_runnum << ": "
-                    << Csbs->GetEntries() << " entries, "
-                    << nindexed << " indexed by g.evnum" << std::endl;
-        } else {
-          std::cout << "SBSON run " << T_runnum
-                    << ": not available; keeping SBSOFF events with no SBS track."
-                    << std::endl;
-        }
-      }
-
-
-
       //Get the time this run started
       auto* Run_Data = C->GetFile()->Get<THaRunBase>("Run_Data");
       TDatime run_time = Run_Data->GetDate();
@@ -637,24 +535,7 @@ int QuasiElastic_ana_withsbsgems(
     bool passedgCut = GlobalCut->EvalInstance(0) != 0;  
     
     if (!passedgCut) continue;
-
-    // Match SBSOFF -> SBSON by CODA event number within the current run.
-    // Event numbers are not assumed to be globally unique across runs.
-    T_evnum = static_cast<Long64_t>(std::llround(evnum_T));
-    T_run_has_sbson = run_has_sbson;
-    T_sbson_event_match = false;
-    T_has_sbs_track = false;
-    ntrack_sbs = 0.0;
-
-    if (run_has_sbson && Csbs) {
-      const Long64_t sbson_entry = Csbs->GetEntryNumberWithIndex(T_evnum);
-      if (sbson_entry >= 0) {
-        Csbs->GetEntry(sbson_entry);
-        T_sbson_event_match = true;
-        T_has_sbs_track = (ntrack_sbs > 0.0);
-      }
-    }
-    
+   
     //cout<<"global passed "<<endl;
     
     double bbcal_trig_time=0., hcal_trig_time=0.;
@@ -813,14 +694,8 @@ int QuasiElastic_ana_withsbsgems(
 
     double thetabend = acos( enhat_fp_rot.Dot( enhat_tgt ) );
     
-    const double sbs_nan = std::numeric_limits<double>::quiet_NaN();
-    double pphi = sbs_nan;
-    double ptheta = sbs_nan;
-    if (T_has_sbs_track && p_sbs[0] > 0.0) {
-      pphi = std::atan2(py_sbs[0], px_sbs[0]);
-      const double cos_theta = std::max(-1.0, std::min(1.0, pz_sbs[0]/p_sbs[0]));
-      ptheta = std::acos(cos_theta);
-    }
+    double pphi = atan(py_sbs[0]/px_sbs[0]) ;
+    double ptheta = acos(pz_sbs[0]/p_sbs[0]);
 
     T_ebeam = Pe.E();
 
@@ -870,52 +745,29 @@ int QuasiElastic_ana_withsbsgems(
     T_trPy = py[0];
     T_trPz = pz[0];
     
-    T_ntrack_sbs = T_sbson_event_match ? ntrack_sbs : 0.0;
-    if (T_has_sbs_track) {
-      T_ntrack_chi2_sbs = chi2_sbs[0];
-      T_ntrack_hits_sbs = sbs_gem_nhits[0];
-      T_vz_sbs = vz_sbs[0];
-      T_vx_sbs = vx_sbs[0];
-      T_vy_sbs = vy_sbs[0];
-      //T_xtgt_sbs = xtgt_sbs[0];
-      T_ytgt_sbs = ytgt_sbs[0];
-      T_thtgt_sbs = thtgt_sbs[0];
-      T_phtgt_sbs = phtgt_sbs[0];
-      //T_thetabend_sbs = thetabend_sbs;
-      T_xfp_sbs = xfp_sbs[0];
-      T_yfp_sbs = yfp_sbs[0];
-      T_thfp_sbs = thfp_sbs[0];
-      T_phfp_sbs = phfp_sbs[0];
-      T_trP_sbs = p_sbs[0];
-      T_trPx_sbs = px_sbs[0];
-      T_trPy_sbs = py_sbs[0];
-      T_trPz_sbs = pz_sbs[0];
-      T_trx_sbs = xTr_sbs[0];
-      T_try_sbs = yTr_sbs[0];
-      T_trth_sbs = thTr_sbs[0];
-      T_trph_sbs = phTr_sbs[0];
-    } else {
-      T_ntrack_chi2_sbs = sbs_nan;
-      T_ntrack_hits_sbs = sbs_nan;
-      T_vz_sbs = sbs_nan;
-      T_vx_sbs = sbs_nan;
-      T_vy_sbs = sbs_nan;
-      T_ytgt_sbs = sbs_nan;
-      T_thtgt_sbs = sbs_nan;
-      T_phtgt_sbs = sbs_nan;
-      T_xfp_sbs = sbs_nan;
-      T_yfp_sbs = sbs_nan;
-      T_thfp_sbs = sbs_nan;
-      T_phfp_sbs = sbs_nan;
-      T_trP_sbs = sbs_nan;
-      T_trPx_sbs = sbs_nan;
-      T_trPy_sbs = sbs_nan;
-      T_trPz_sbs = sbs_nan;
-      T_trx_sbs = sbs_nan;
-      T_try_sbs = sbs_nan;
-      T_trth_sbs = sbs_nan;
-      T_trph_sbs = sbs_nan;
-    }
+    T_ntrack_sbs = ntrack_sbs; 
+    T_ntrack_chi2_sbs = chi2_sbs[0]; 
+    T_ntrack_hits_sbs = sbs_gem_nhits[0];
+    T_vz_sbs = vz_sbs[0];
+    T_vx_sbs = vx_sbs[0];
+    T_vy_sbs = vy_sbs[0];
+    //T_xtgt_sbs = xtgt_sbs[0];
+    T_ytgt_sbs = ytgt_sbs[0];
+    T_thtgt_sbs = thtgt_sbs[0];
+    T_phtgt_sbs = phtgt_sbs[0];
+    //T_thetabend_sbs = thetabend_sbs;
+    T_xfp_sbs = xfp_sbs[0];
+    T_yfp_sbs = yfp_sbs[0];
+    T_thfp_sbs = thfp_sbs[0];
+    T_phfp_sbs = phfp_sbs[0];
+    T_trP_sbs = p_sbs[0];
+    T_trPx_sbs = px_sbs[0];
+    T_trPy_sbs = py_sbs[0];
+    T_trPz_sbs = pz_sbs[0];
+    T_trx_sbs = xTr_sbs[0];
+    T_try_sbs = yTr_sbs[0];
+    T_trth_sbs = thTr_sbs[0];
+    T_trph_sbs = phTr_sbs[0];
 
     T_ePS = ePS;
     T_xPS = xPS;
@@ -1052,11 +904,7 @@ int QuasiElastic_ana_withsbsgems(
   c1->Write();
   
   fout->Write();
-  if (Csbs) {
-    delete Csbs;
-    Csbs = nullptr;
-  }
   sw->Delete();
-  
+   
   return 0;
 }
