@@ -58,7 +58,7 @@ void getDB(TString cfg){
 
 int QuasiElastic_ana_withsbsgems(
     const std::string configfilename,
-    std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/pass3/He3/ALL/QE_data",
+    std::string filebase="/volatile/halla/sbs/vimukthi/outfiles/pass3/for_pol_DIS/QE_data",
     std::string sbsoff_dir="",
     std::string sbson_dir="")
 {
@@ -333,6 +333,13 @@ int QuasiElastic_ana_withsbsgems(
   // defining the outputfile
   TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_sbstrackingon.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
+  
+  // Prevent ROOT from automatically splitting Tout into multiple files.
+  // Allow a single output ROOT file up to 1 TB.
+  TTree::SetMaxTreeSize(1000LL * 1024LL * 1024LL * 1024LL);
+
+  std::cout << "Maximum ROOT tree file size = "<< TTree::GetMaxTreeSize() / (1024.0*1024.0*1024.0)<< " GB" << std::endl;
+
   TFile *fout = new TFile(outFile.Data(), "RECREATE");
 
   // defining histograms

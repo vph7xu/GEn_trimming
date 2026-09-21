@@ -168,13 +168,44 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   std::vector<void*> mc_vertex_mem = {&mc_vx,&mc_vy,&mc_px,&mc_py,&mc_pz};
   setrootvar::setbranch(C,"MC",mc_vertex,mc_vertex_mem);
 
+  //MC primary-track truth
+  const int maxNMC = 1000;
+  double mc_ptrack_ntracks;
+  double mc_ptrack_pid[maxNMC],mc_ptrack_tid[maxNMC],mc_ptrack_momx[maxNMC],mc_ptrack_momy[maxNMC],mc_ptrack_momz[maxNMC],mc_ptrack_posx[maxNMC],mc_ptrack_posy[maxNMC],mc_ptrack_posz[maxNMC];
+  std::vector<std::string> mc_ptrack_var = {"ptrack_ntracks","ptrack_pid","ptrack_tid","ptrack_momx","ptrack_momy","ptrack_momz","ptrack_posx","ptrack_posy","ptrack_posz"};
+  std::vector<void*> mc_ptrack_mem = {&mc_ptrack_ntracks,&mc_ptrack_pid,&mc_ptrack_tid,&mc_ptrack_momx,&mc_ptrack_momy,&mc_ptrack_momz,&mc_ptrack_posx,&mc_ptrack_posy,&mc_ptrack_posz};
+  setrootvar::setbranch(C, "MC", mc_ptrack_var, mc_ptrack_mem);
+
+  // MC sensitive-detector track truth
+  double mc_sdtrack_ntracks,mc_sdtrack_pid[maxNMC],mc_sdtrack_tid[maxNMC],mc_sdtrack_mid[maxNMC],mc_sdtrack_momx[maxNMC],mc_sdtrack_momy[maxNMC],mc_sdtrack_momz[maxNMC],mc_sdtrack_posx[maxNMC],mc_sdtrack_posy[maxNMC],mc_sdtrack_posz[maxNMC],mc_sdtrack_vx[maxNMC],mc_sdtrack_vy[maxNMC],mc_sdtrack_vz[maxNMC];
+
+ std::vector<std::string> mc_sdtrack_var = {"sdtrack_ntracks","sdtrack_pid","sdtrack_tid","sdtrack_mid","sdtrack_momx","sdtrack_momy","sdtrack_momz","sdtrack_posx","sdtrack_posy","sdtrack_posz","sdtrack_vx","sdtrack_vy","sdtrack_vz"};
+
+  std::vector<void*> mc_sdtrack_mem = {&mc_sdtrack_ntracks,&mc_sdtrack_pid,&mc_sdtrack_tid,&mc_sdtrack_mid,&mc_sdtrack_momx,&mc_sdtrack_momy,&mc_sdtrack_momz,&mc_sdtrack_posx,&mc_sdtrack_posy,&mc_sdtrack_posz,&mc_sdtrack_vx,&mc_sdtrack_vy,&mc_sdtrack_vz};
+
+  setrootvar::setbranch(C, "MC", mc_sdtrack_var, mc_sdtrack_mem);
+
+  // HCal truth ancestry indices
+
+  Int_t Ndata_MC_hcalhit_ptridx = 0,Ndata_MC_hcalhit_sdtridx = 0;
+  double mc_hcalhit_ptridx[maxNMC],mc_hcalhit_sdtridx[maxNMC];
+
+  // These Ndata branches are counters for the variable-length arrays.
+  C->SetBranchStatus("Ndata.MC.hcalhit_ptridx", 1);
+  C->SetBranchStatus("Ndata.MC.hcalhit_sdtridx", 1);
+  C->SetBranchAddress("Ndata.MC.hcalhit_ptridx",&Ndata_MC_hcalhit_ptridx);
+  C->SetBranchAddress("Ndata.MC.hcalhit_sdtridx",&Ndata_MC_hcalhit_sdtridx);
+
+  setrootvar::setbranch( C, "MC", "hcalhit_ptridx", &mc_hcalhit_ptridx);
+  setrootvar::setbranch(C, "MC", "hcalhit_sdtridx", &mc_hcalhit_sdtridx);
+
   // turning on the remaining branches we use for the globalcut
   C->SetBranchStatus("bb.gem.track.nhits", 1);
   C->SetBranchStatus("bb.etot_over_p", 1);
   C->SetBranchStatus("sbs.hcal.nclus", 1);
   
   // defining the outputfile
-  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_elastic_sbstracking_on.root", 
+  TString outFile = Form("%s_" + sbsconf.GetSBSconf() + "_sbs%dp_nucleon_%s_model%d_inelastic_sbstracking_on.root", 
 			 filebase.c_str(),  sbsconf.GetSBSmag(), Ntype.Data(), model);
   TFile *fout = new TFile(outFile.Data(), "RECREATE");
 
@@ -292,6 +323,42 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
   double T_dy;          Tout->Branch("dy", &T_dy, "dy/D");
   double T_theta_pq;    Tout->Branch("theta_pq", &T_theta_pq, "theta_pq/D");
 
+  // MC primary-track information copied to trimmed tree
+  Int_t T_nptrack = 0;  Tout->Branch("nptrack",&T_nptrack,"nptrack/I");
+  Int_t T_ptrack_pid[maxNMC];    Tout->Branch("ptrack_pid",T_ptrack_pid,"ptrack_pid[nptrack]/I");
+  Int_t T_ptrack_tid[maxNMC];    Tout->Branch("ptrack_tid",T_ptrack_tid,"ptrack_tid[nptrack]/I");
+  double T_ptrack_momx[maxNMC];  Tout->Branch("ptrack_momx",T_ptrack_momx,"ptrack_momx[nptrack]/D");
+  double T_ptrack_momy[maxNMC];  Tout->Branch("ptrack_momy",T_ptrack_momy,"ptrack_momy[nptrack]/D");
+  double T_ptrack_momz[maxNMC];  Tout->Branch("ptrack_momz",T_ptrack_momz,"ptrack_momz[nptrack]/D");
+  double T_ptrack_posx[maxNMC];  Tout->Branch("ptrack_posx",T_ptrack_posx,"ptrack_posx[nptrack]/D");
+  double T_ptrack_posy[maxNMC];  Tout->Branch("ptrack_posy",T_ptrack_posy,"ptrack_posy[nptrack]/D");
+  double T_ptrack_posz[maxNMC];  Tout->Branch("ptrack_posz",T_ptrack_posz,"ptrack_posz[nptrack]/D");
+
+  // Sensitive-detector truth tracks
+  Int_t T_nsdtrack = 0;         Tout->Branch("nsdtrack",&T_nsdtrack,"nsdtrack/I");
+  Int_t T_sdtrack_pid[maxNMC];  Tout->Branch("sdtrack_pid",T_sdtrack_pid,"sdtrack_pid[nsdtrack]/I");
+  Int_t T_sdtrack_tid[maxNMC];  Tout->Branch("sdtrack_tid",T_sdtrack_tid,"sdtrack_tid[nsdtrack]/I");
+  Int_t T_sdtrack_mid[maxNMC];  Tout->Branch("sdtrack_mid",T_sdtrack_mid,"sdtrack_mid[nsdtrack]/I");
+  double T_sdtrack_momx[maxNMC];  Tout->Branch("sdtrack_momx",T_sdtrack_momx,"sdtrack_momx[nsdtrack]/D");
+  double T_sdtrack_momy[maxNMC];  Tout->Branch("sdtrack_momy",T_sdtrack_momy,"sdtrack_momy[nsdtrack]/D");
+  double T_sdtrack_momz[maxNMC];  Tout->Branch("sdtrack_momz",T_sdtrack_momz,"sdtrack_momz[nsdtrack]/D");
+  double T_sdtrack_posx[maxNMC];  Tout->Branch("sdtrack_posx",T_sdtrack_posx,"sdtrack_posx[nsdtrack]/D");
+  double T_sdtrack_posy[maxNMC];  Tout->Branch("sdtrack_posy",T_sdtrack_posy,"sdtrack_posy[nsdtrack]/D");
+  double T_sdtrack_posz[maxNMC];  Tout->Branch("sdtrack_posz",T_sdtrack_posz,"sdtrack_posz[nsdtrack]/D");
+  double T_sdtrack_vx[maxNMC];    Tout->Branch("sdtrack_vx",T_sdtrack_vx,"sdtrack_vx[nsdtrack]/D");
+  double T_sdtrack_vy[maxNMC];    Tout->Branch("sdtrack_vy",T_sdtrack_vy,"sdtrack_vy[nsdtrack]/D");
+  double T_sdtrack_vz[maxNMC];    Tout->Branch("sdtrack_vz",T_sdtrack_vz,"sdtrack_vz[nsdtrack]/D");
+
+  // HCal -> MC truth indices
+  Int_t T_nhcaltruth = 0;           Tout->Branch("nhcaltruth",&T_nhcaltruth,"nhcaltruth/I");
+  Int_t T_hcalhit_ptridx[maxNMC];   Tout->Branch("hcalhit_ptridx",T_hcalhit_ptridx,"hcalhit_ptridx[nhcaltruth]/I");
+  Int_t T_hcalhit_sdtridx[maxNMC];  Tout->Branch("hcalhit_sdtridx",T_hcalhit_sdtridx,"hcalhit_sdtridx[nhcaltruth]/I");
+
+  Int_t T_hcal_primary_idx = -1;        Tout->Branch("hcal_primary_idx",&T_hcal_primary_idx,"hcal_primary_idx/I");
+  Int_t T_hcal_primary_pid = 0;         Tout->Branch("hcal_primary_pid",&T_hcal_primary_pid,"hcal_primary_pid/I");
+  Int_t T_hcal_primary_tid = -1;        Tout->Branch("hcal_primary_tid",&T_hcal_primary_tid,"hcal_primary_tid/I");
+  double T_hcal_primary_fraction = 0.0; Tout->Branch("hcal_primary_fraction",&T_hcal_primary_fraction,"hcal_primary_fraction/D");
+  
   // Do the energy loss calculation here ...........
 
   // HCAL cut definitions
@@ -492,6 +559,71 @@ int QuasiElastic_sim_ana(const std::string configfilename, std::string filebase=
     T_eHCAL = eHCAL;
     T_xHCAL = xHCAL;
     T_yHCAL = yHCAL;
+
+    // Copy MC primary-track truth
+    T_nptrack = std::min((Int_t)mc_ptrack_ntracks,maxNMC);
+    for (int j = 0; j < T_nptrack; j++) {
+       T_ptrack_pid[j] = (Int_t)std::lround(mc_ptrack_pid[j]);
+       T_ptrack_tid[j] = (Int_t)std::lround(mc_ptrack_tid[j]);
+       T_ptrack_momx[j] = mc_ptrack_momx[j];
+       T_ptrack_momy[j] = mc_ptrack_momy[j];
+       T_ptrack_momz[j] = mc_ptrack_momz[j];
+       T_ptrack_posx[j] = mc_ptrack_posx[j];
+       T_ptrack_posy[j] = mc_ptrack_posy[j];
+       T_ptrack_posz[j] = mc_ptrack_posz[j];
+    }
+
+    // Copy sensitive-detector truth
+    T_nsdtrack = std::min((Int_t)mc_sdtrack_ntracks,maxNMC);
+    for (int j = 0; j < T_nsdtrack; j++) {
+       T_sdtrack_pid[j] = (Int_t)std::lround(mc_sdtrack_pid[j]);
+       T_sdtrack_tid[j] = (Int_t)std::lround(mc_sdtrack_tid[j]);
+       T_sdtrack_mid[j] = (Int_t)std::lround(mc_sdtrack_mid[j]);
+       T_sdtrack_momx[j] = mc_sdtrack_momx[j];
+       T_sdtrack_momy[j] = mc_sdtrack_momy[j];
+       T_sdtrack_momz[j] = mc_sdtrack_momz[j];
+       T_sdtrack_posx[j] = mc_sdtrack_posx[j];
+       T_sdtrack_posy[j] = mc_sdtrack_posy[j];
+       T_sdtrack_posz[j] = mc_sdtrack_posz[j];
+       T_sdtrack_vx[j] = mc_sdtrack_vx[j];
+       T_sdtrack_vy[j] = mc_sdtrack_vy[j];
+       T_sdtrack_vz[j] = mc_sdtrack_vz[j];
+    }
+
+    // Copy HCal truth indices
+    T_nhcaltruth = std::min(Ndata_MC_hcalhit_ptridx,maxNMC);
+    for (int j = 0; j < T_nhcaltruth; j++) {
+       T_hcalhit_ptridx[j] = (Int_t)std::lround(mc_hcalhit_ptridx[j]);
+       T_hcalhit_sdtridx[j] = (Int_t)std::lround(mc_hcalhit_sdtridx[j]);
+    }
+
+    T_hcal_primary_idx = -1;
+    T_hcal_primary_pid = 0;
+    T_hcal_primary_tid = -1;
+    T_hcal_primary_fraction = 0.0;
+
+    if (T_nhcaltruth > 0 && T_nptrack > 0) {
+      std::vector<int> counts(T_nptrack, 0);
+      int nvalid = 0;
+      for (int j = 0; j < T_nhcaltruth; j++) {
+        const int idx = T_hcalhit_ptridx[j];
+
+        if (idx >= 0 && idx < T_nptrack) {
+          counts[idx]++;
+          nvalid++;
+        }
+      }
+      int best_count = 0;
+      for (int j = 0; j < T_nptrack; j++) {
+        if (counts[j] > best_count) {
+          best_count = counts[j];
+          T_hcal_primary_idx = j;
+          T_hcal_primary_pid = T_ptrack_pid[j];
+          T_hcal_primary_tid = T_ptrack_tid[j];
+        }
+      }
+      if (nvalid > 0){ T_hcal_primary_fraction = (double)best_count/(double)nvalid;}
+    }
 
     double theta_pq = kine::theta_pq(vertex, HCAL_origin, pNhat, xHCAL, yHCAL);
 
